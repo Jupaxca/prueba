@@ -45,19 +45,19 @@ st.markdown("""
             background-color: #2a161f;
             border-left: 4px solid #ef4444;
             border-radius: 0.5rem;
-            padding: 0.35rem 0.5rem;
-            margin-bottom: 0.35rem;
+            padding: 0.4rem 0.6rem;
+            margin-bottom: 0.4rem;
         }
         .insight-card-green {
             background-color: #132724;
             border-left: 4px solid #10b981;
             border-radius: 0.5rem;
-            padding: 0.35rem 0.5rem;
-            margin-bottom: 0.35rem;
+            padding: 0.4rem 0.6rem;
+            margin-bottom: 0.4rem;
         }
         .insight-title {
             color: white;
-            font-size: 0.68rem;
+            font-size: 0.7rem;
             font-weight: 600;
             margin-bottom: 0.05rem;
             display: flex;
@@ -66,13 +66,12 @@ st.markdown("""
         }
         .insight-text {
             color: #cbd5e1;
-            font-size: 0.62rem;
+            font-size: 0.65rem;
             line-height: 1.15;
             margin: 0;
         }
         @media print {
             .stButton {display: none;}
-            .sidebar {display: none;}
         }
     </style>
 """, unsafe_allow_html=True)
@@ -112,8 +111,9 @@ def cargar_datos_gsheets(url):
 def main():
     st.sidebar.markdown("## 🔍 Filtros")
     
-    gsheet_url = st.sidebar.text_input("URL de Google Sheets", value=DEFAULT_GSHEET_URL)
-    
+    with st.sidebar.container():
+        gsheet_url = st.text_input("URL de Google Sheets", value=DEFAULT_GSHEET_URL)
+        
     if st.sidebar.button("🔄 Refrescar Datos", use_container_width=True):
         with st.spinner("Actualizando conexión en vivo..."):
             time.sleep(0.5)
@@ -141,7 +141,6 @@ def main():
     no_cumplen = len(df[df['CUMPLIMIENTO'].astype(str).str.lower() == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    # Lógica de estados según rangos solicitados (0-25 Critico, 26-50 Malo, 51-75 Medio Bueno, 76-100 Bueno)
     if salud_pct <= 25:
         estado_badge = "🔴 ESTADO CRÍTICO: Acción Inmediata Requerida"
         badge_bg = "rgba(239, 68, 68, 0.2)"
@@ -176,53 +175,68 @@ def main():
     """, unsafe_allow_html=True)
 
     retraso_dias = 0
-    fuga_costos = 0
+    fuga_reconocimiento = 0
+    fuga_flete = 0
     
     for _, row in df.iterrows():
         ind_upper = str(row['INDICADOR']).upper()
         esp = row['MEDICION ESPERADA']
         real = row['MEDICION REAL']
-        if "FACTURACION" in ind_upper or "FLETE" in ind_upper or "COSTO" in ind_upper:
+        if "RECONOCIMIENTO" in ind_upper:
             diff = real - esp
             if diff > 0:
-                fuga_costos += diff
+                fuga_reconocimiento += diff
+        elif "FLETE" in ind_upper:
+            diff = real - esp
+            if diff > 0:
+                fuga_flete += diff
         else:
             if real > esp:
                 retraso_dias += (real - esp)
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
     with kpi1:
         st.markdown(f"""
         <div class="kpi-card">
-            <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Salud Operación</span>
-            <div style="font-size: 1.8rem; font-weight: 700; color: white; margin-top: 0.3rem;">{salud_pct:.1f}%</div>
-            <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.3rem;">{cumplen} de {total_kpis} logradas</div>
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Salud Operación</span>
+            <div style="font-size: 1.5rem; font-weight: 700; color: white; margin-top: 0.2rem;">{salud_pct:.1f}%</div>
+            <div style="font-size: 0.65rem; color: #94a3b8; margin-top: 0.2rem;">{cumplen} de {total_kpis} logradas</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi2:
         st.markdown(f"""
         <div class="kpi-card" style="border-color: rgba(239,68,68,0.3);">
-            <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Alertas Activas</span>
-            <div style="font-size: 1.8rem; font-weight: 700; color: #ef4444; margin-top: 0.3rem;">{no_cumplen}</div>
-            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.3rem;">Procesos fuera de meta</div>
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Alertas Activas</span>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #ef4444; margin-top: 0.2rem;">{no_cumplen}</div>
+            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Fuera de meta</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi3:
         st.markdown(f"""
         <div class="kpi-card">
-            <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Desvío Tiempos</span>
-            <div style="font-size: 1.8rem; font-weight: 700; color: #f97316; margin-top: 0.3rem;">+{retraso_dias} Días</div>
-            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.3rem;">Retraso acumulado</div>
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Desvío Tiempos</span>
+            <div style="font-size: 1.5rem; font-weight: 700; color: #f97316; margin-top: 0.2rem;">+{retraso_dias} Días</div>
+            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Retraso acumulado</div>
         </div>
         """, unsafe_allow_html=True)
     with kpi4:
-        color_costo = "#ef4444" if fuga_costos > 0 else "#10b981"
-        texto_costo = f"${fuga_costos:,.0f}" if fuga_costos > 0 else "$0 (En meta)"
+        color_flete = "#ef4444" if fuga_flete > 0 else "#10b981"
+        texto_flete = f"${fuga_flete:,.0f}" if fuga_flete > 0 else "$0 (Óptimo)"
         st.markdown(f"""
         <div class="kpi-card">
-            <span style="color: #94a3b8; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Impacto Financiero</span>
-            <div style="font-size: 1.8rem; font-weight: 700; color: {color_costo}; margin-top: 0.3rem;">{texto_costo}</div>
-            <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.3rem;">Sobrecosto / Desvío</div>
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Flete</span>
+            <div style="font-size: 1.4rem; font-weight: 700; color: {color_flete}; margin-top: 0.2rem;">{texto_flete}</div>
+            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Flete vs Facturación</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with kpi5:
+        color_rec = "#ef4444" if fuga_reconocimiento > 0 else "#10b981"
+        texto_rec = f"${fuga_reconocimiento:,.0f}" if fuga_reconocimiento > 0 else "$0 (Óptimo)"
+        st.markdown(f"""
+        <div class="kpi-card">
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Reconoc.</span>
+            <div style="font-size: 1.4rem; font-weight: 700; color: {color_rec}; margin-top: 0.2rem;">{texto_rec}</div>
+            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Reconoc. vs Cotización</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -231,12 +245,11 @@ def main():
     col_g1, col_g2 = st.columns([2, 1])
     
     with col_g1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:0.5rem; font-weight:600;">⏱️ Brecha de los 7 Parámetros Operativos (Esperado vs Real)</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:0.5rem; font-weight:600;">⏱️ Brecha de los 6 Parámetros Operativos (Esperado vs Real)</h3>', unsafe_allow_html=True)
         
         nombres_operativos = [
             "Cumplimiento de Itinerario (Transito origen - destino )",
             "Tiempo de Respuesta en Cotización",
-            "Cotizacion flete internacional Vs Facturacion del proceso",
             "Tiempo cierre documental",
             "Tiempo de Disposición en Depósito",
             "Eficiencia reconocimiento",
@@ -245,7 +258,7 @@ def main():
         
         df_ops = df[df['INDICADOR'].astype(str).str.strip().isin([n.strip() for n in nombres_operativos])]
         if df_ops.empty:
-            df_ops = df.head(7)
+            df_ops = df.head(6)
 
         nombres_cortos = [str(x)[:22] + '...' if len(str(x)) > 22 else str(x) for x in df_ops['INDICADOR']]
 
