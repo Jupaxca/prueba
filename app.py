@@ -376,4 +376,4 @@ def main():
         
         tabla_html = "<div style='overflow-x:auto;'><table class='custom-table'><thead><tr><th>Indicador</th><th>Meta</th><th>Esperado</th><th>Real</th><th>Estado</th></tr></thead><tbody>"
         for _, row in df_filtered.iterrows():
-            indicador = str(row['INDICADOR'])[:45] + "..." if len(str(row['INDICADOR'])) > 45 else row['INDICADOR
+            indicador = str(row['INDICADOR'])[:45] + "..." if len(str(row['INDICADOR'])) > 45 else row['INDICADOR']
