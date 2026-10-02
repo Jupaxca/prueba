@@ -142,7 +142,6 @@ def main():
     no_cumplen = len(df[df['CUMPLIMIENTO'].astype(str).str.lower() == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    # Lógica de estados según tus rangos solicitados
     if salud_pct <= 25:
         estado_badge = "🔴 ESTADO CRÍTICO: Acción Inmediata Requerida"
         badge_bg = "rgba(239, 68, 68, 0.2)"
@@ -191,7 +190,6 @@ def main():
             if real > esp:
                 retraso_dias += (real - esp)
 
-    # Tarjetas KPI superiores
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
         st.markdown(f"""
@@ -315,7 +313,6 @@ def main():
     with col_t1:
         st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📋 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
-        # Uso seguro de dataframe de Streamlit para evitar escape de HTML en crudo
         df_display = df_filtrado[['INDICADOR', 'META', 'MEDICION ESPERADA', 'MEDICION REAL', 'CUMPLIMIENTO']].copy()
         df_display.columns = ['Indicador', 'Meta', 'Esperado', 'Real', 'Estado']
         
@@ -323,8 +320,9 @@ def main():
             color = '#34d399' if str(val).lower() == 'cumple' else '#f87171'
             return f'color: {color}; font-weight: bold;'
             
+        # Actualizado de applymap a map para compatibilidad con pandas moderno
         st.dataframe(
-            df_display.style.applymap(color_estado, subset=['Estado']),
+            df_display.style.map(color_estado, subset=['Estado']),
             use_container_width=True,
             hide_index=True
         )
