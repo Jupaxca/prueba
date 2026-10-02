@@ -16,7 +16,7 @@ st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6, .stMarkdown li, .stMarkdown span:not(.stIcon):not([class*="icon"]):not(.material-icons) {
+        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6, .stMarkdown li {
             font-family: 'Inter', sans-serif !important;
         }
 
@@ -32,13 +32,12 @@ st.markdown("""
         }
         
         footer {visibility: hidden;}
-        .stDeployButton {display:none;}
         header[data-testid="stHeader"] { background-color: transparent !important; }
         
         .glass-card {
             background: #111827;
             border: 1px solid #1f2937;
-            border-radius: 1rem;
+            border-radius: 1.25rem;
             padding: 1.5rem;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             margin-bottom: 1rem;
@@ -55,7 +54,7 @@ st.markdown("""
         }
         
         .metric-value {
-            font-size: 2.5rem; 
+            font-size: 2.3rem; 
             font-weight: 700;
             line-height: 1;
             white-space: nowrap !important;
@@ -92,30 +91,30 @@ st.markdown("""
         .insight-card-red {
             background-color: #2a161f;
             border-left: 4px solid #ef4444;
-            border-radius: 0.5rem;
-            padding: 0.85rem;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
             margin-bottom: 0.75rem;
         }
         .insight-card-green {
             background-color: #132724;
             border-left: 4px solid #10b981;
-            border-radius: 0.5rem;
-            padding: 0.85rem;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
             margin-bottom: 0.75rem;
         }
         .insight-title {
             color: white;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: 600;
-            margin-bottom: 0.3rem;
+            margin-bottom: 0.2rem;
             display: flex;
             align-items: center;
             gap: 0.4rem;
         }
         .insight-text {
             color: #cbd5e1;
-            font-size: 0.8rem;
-            line-height: 1.4;
+            font-size: 0.75rem;
+            line-height: 1.3;
             margin: 0;
         }
 
@@ -125,7 +124,6 @@ st.markdown("""
             .glass-card { background: white !important; border: 1px solid #ccc !important; box-shadow: none !important; color: black !important; break-inside: avoid; }
             .metric-title { color: #555 !important; }
             .metric-value { color: #000 !important; }
-            .text-white { color: black !important; }
             h1, h2, h3, h4, p, td, th { color: black !important; }
             .print-hide, .stButton { display: none !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
@@ -133,7 +131,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Conexión de datos
+# 3. Conexión de datos con Google Sheets
 @st.cache_data(ttl=600)
 def load_data(url):
     try:
@@ -159,14 +157,14 @@ def load_data(url):
 
 def main():
     with st.sidebar:
-        st.markdown('<h2 style="color:white; font-weight: 600; margin-bottom:1.5rem;">🔎 Filtros</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="color:white; font-weight: 600; margin-bottom:1.5rem; font-size: 1.2rem;">🔍 Filtros y Configuración</h2>', unsafe_allow_html=True)
         default_url = "https://docs.google.com/spreadsheets/d/1l5rXqFgHcUyNSQB_s82UTrHxVlpV6GHb4Yobegd-t2g/edit?usp=drivesdk"
         
         estados = ['Todos', 'cumple', 'no cumple']
         filtro_estado = st.selectbox("Estado del KPI", estados, index=0)
         filtro_texto = st.text_input("Buscar...", "", placeholder="ej. Flete, Tiempo...")
         
-        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         with st.expander("⚙️ Configuración de Datos", expanded=False):
             url_input = st.text_input("URL de Google Sheets", default_url, key="sheet_url")
         
@@ -198,24 +196,21 @@ def main():
     if filtro_texto:
         df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
 
-    if df_filtered.empty:
-        st.warning("No hay indicadores que coincidan con la búsqueda.")
-        return
-
-    total_kpis = len(df_filtered)
-    cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'cumple'])
-    no_cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'no cumple'])
+    total_kpis = len(df)
+    cumplen = len(df[df['CUMPLIMIENTO'] == 'cumple'])
+    no_cumplen = len(df[df['CUMPLIMIENTO'] == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    df_finanzas = df_filtered[df_filtered['INDICADOR'].astype(str).str.contains('Facturacion|flete|reconocimiento', case=False, na=False)]
-    df_tiempos = df_filtered[~df_filtered['INDICADOR'].isin(df_finanzas['INDICADOR'])]
+    # Separar finanzas y tiempos
+    df_finanzas = df[df['INDICADOR'].astype(str).str.contains('Facturacion|flete|reconocimiento', case=False, na=False)]
+    df_tiempos = df[~df['INDICADOR'].isin(df_finanzas['INDICADOR'])]
 
     retraso_dias = sum([row['MEDICION REAL'] - row['MEDICION ESPERADA'] for _, row in df_tiempos.iterrows() if (row['MEDICION REAL'] - row['MEDICION ESPERADA']) > 0])
     fuga_costos = 0
     if not df_finanzas.empty:
         fuga_costos = df_finanzas['MEDICION REAL'].sum() - df_finanzas['MEDICION ESPERADA'].sum()
 
-    # HEADER Y ADVERTENCIAS DE ESTADO
+    # HEADER Y ADVERTENCIAS DE ESTADO SEGÚN RANGO
     col_t1, col_t2 = st.columns([3, 1])
     with col_t1:
         st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.2rem; display: flex; align-items: center; gap: 0.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
@@ -261,31 +256,32 @@ def main():
             </div>
         """, unsafe_allow_html=True)
     with c4:
+        color_fin = "text-green" if fuga_costos <= 0 else "text-red"
+        label_fin = "Ahorro vs Cotización" if fuga_costos <= 0 else "Sobrecosto"
         st.markdown(f"""
             <div class="glass-card">
                 <div class="metric-title">IMPACTO FINANCIERO <span style="float:right; font-size:1.2rem;">💰</span></div>
-                <div class="metric-value text-red">${abs(fuga_costos):,.0f}</div>
-                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">Sobrecosto</div>
+                <div class="metric-value {color_fin}">${abs(fuga_costos):,.0f}</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">{label_fin}</div>
             </div>
         """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # GRÁFICO DE TIEMPOS (TODOS LOS 7 PARÁMETROS)
+    # GRÁFICO DE BRECHA DE TIEMPOS (EXCLUYENDO FINANCIEROS, SOLO LOS 7 PARÁMETROS) Y DONUT
     col_g1, col_g2 = st.columns([2, 1])
     with col_g1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">⏱️ Brecha de los 7 Parámetros (Esperado vs Real)</h3>', unsafe_allow_html=True)
-        if not df.empty:
-            df_t = df.copy()
-            nombres = [str(x)[:28] + '...' if len(str(x)) > 28 else str(x) for x in df_t['INDICADOR']]
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">⏱️ Brecha de los Parámetros Operativos (Esperado vs Real)</h3>', unsafe_allow_html=True)
+        if not df_tiempos.empty:
+            nombres = [str(x)[:28] + '...' if len(str(x)) > 28 else str(x) for x in df_tiempos['INDICADOR']]
             
             fig1 = go.Figure()
             fig1.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
             fig1.update_yaxes(showgrid=False, zeroline=False)
 
-            for i in range(len(df_t)):
-                esp = df_t['MEDICION ESPERADA'].iloc[i]
-                real = df_t['MEDICION REAL'].iloc[i]
+            for i in range(len(df_tiempos)):
+                esp = df_tiempos['MEDICION ESPERADA'].iloc[i]
+                real = df_tiempos['MEDICION REAL'].iloc[i]
                 color_linea = '#ef4444' if real > esp else 'rgba(148, 163, 184, 0.2)' 
                 fig1.add_trace(go.Scatter(
                     x=[esp, real], y=[nombres[i], nombres[i]],
@@ -294,22 +290,22 @@ def main():
                 ))
             
             fig1.add_trace(go.Scatter(
-                x=df_t['MEDICION ESPERADA'], y=nombres,
+                x=df_tiempos['MEDICION ESPERADA'], y=nombres,
                 mode='markers', name='Esperado',
                 marker=dict(color='#3b82f6', size=8, symbol='square'),
-                hovertext=df_t['INDICADOR'], hoverinfo='text+x'
+                hovertext=df_tiempos['INDICADOR'], hoverinfo='text+x'
             ))
             
-            colores_real = ['#ef4444' if r > e else '#10b981' for r, e in zip(df_t['MEDICION REAL'], df_t['MEDICION ESPERADA'])]
+            colores_real = ['#ef4444' if r > e else '#10b981' for r, e in zip(df_tiempos['MEDICION REAL'], df_tiempos['MEDICION ESPERADA'])]
             fig1.add_trace(go.Scatter(
-                x=df_t['MEDICION REAL'], y=nombres,
+                x=df_tiempos['MEDICION REAL'], y=nombres,
                 mode='markers', name='Real',
                 marker=dict(color=colores_real, size=8, symbol='circle'),
-                hovertext=df_t['INDICADOR'], hoverinfo='text+x'
+                hovertext=df_tiempos['INDICADOR'], hoverinfo='text+x'
             ))
             
             fig1.update_layout(
-                height=380, margin=dict(l=10, r=20, t=10, b=30),
+                height=350, margin=dict(l=10, r=20, t=10, b=30),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter', size=11),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=11))
@@ -329,7 +325,7 @@ def main():
             textfont=dict(color='white')
         )])
         fig3.update_layout(
-            height=320, margin=dict(l=10, r=10, t=20, b=20),
+            height=300, margin=dict(l=10, r=10, t=20, b=20),
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#9ca3af', family='Inter'),
             legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
@@ -337,14 +333,16 @@ def main():
         st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # MATRIZ Y 8 APARTADOS DE INSIGHTS INDIVIDUALES
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # MATRIZ Y APARTADOS DE INSIGHTS INDIVIDUALES PARA CADA UNO DE LOS 8 INDICADORES
     col_b1, col_b2 = st.columns([2.2, 1])
     
     with col_b1:
         st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">📊 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
         tabla_html = "<div style='overflow-x:auto;'><table class='custom-table'><thead><tr><th>Indicador</th><th>Meta</th><th>Esperado</th><th>Real</th><th>Estado</th></tr></thead><tbody>"
-        for _, row in df.iterrows():
+        for _, row in df_filtered.iterrows():
             indicador = str(row['INDICADOR'])
             meta = row['META'] if 'META' in df.columns else '-'
             esp = row['MEDICION ESPERADA']
@@ -364,9 +362,9 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col_b2:
-        st.markdown('<div style="margin-top: 0.5rem;"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">💡 Diagnóstico por Indicador</h3>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-top: 0.5rem;"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">💡 Diagnóstico Detallado (8 Apartados)</h3>', unsafe_allow_html=True)
         
-        # Generar un mensaje específico para cada fila/apartado de la tabla
+        # Generar un apartado de insight exacto para CADA uno de los indicadores de la tabla
         for _, row in df.iterrows():
             ind = str(row['INDICADOR'])
             esp = row['MEDICION ESPERADA']
@@ -381,11 +379,17 @@ def main():
             if estado == 'cumple':
                 card_class = "insight-card-green"
                 icon = "🟢"
-                msg = f"Se cumple al 100% en el indicador (Esperado: {esp}, Real: {real}). Operación eficiente."
+                if "FACTURACION" in ind.upper() or "FLETE" in ind.upper():
+                    msg = f"Se cumple al 100% en control financiero (Esperado: ${esp:,.0f}, Real:${real:,.0f}). Sin desvíos de presupuesto."
+                else:
+                    msg = f"Se cumple al 100% en el indicador (Esperado: {esp}, Real: {real}). Operación eficiente."
             else:
                 card_class = "insight-card-red"
                 icon = "🔴"
-                msg = f"Presenta retraso o demora un <strong>{pct:.0f}%</strong> de lo esperado (Esperado: {esp}, Real: {real})."
+                if "FACTURACION" in ind.upper():
+                    msg = f"Presenta sobrecosto monetario un <strong>{pct:.0f}%</strong> de lo esperado (Esperado: ${esp:,.0f}, Real:${real:,.0f})."
+                else:
+                    msg = f"Presenta retraso o demora un <strong>{pct:.0f}%</strong> de lo esperado (Esperado: {esp}, Real: {real})."
                 
             st.markdown(f"""
             <div class="{card_class}">
