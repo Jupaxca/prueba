@@ -38,58 +38,96 @@ st.markdown("""
         header[data-testid="stHeader"] { background-color: transparent !important; }
         
         .glass-card {
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 1.25rem;
-            padding: 1.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
-            margin-bottom: 1.25rem;
+            background: #111827; /* Fondo más oscuro similar a la imagen */
+            border: 1px solid #1f2937;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            margin-bottom: 1rem;
             height: 100%;
         }
         
         .metric-title {
-            color: #94a3b8;
-            font-size: 0.85rem;
+            color: #9ca3af;
+            font-size: 0.75rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
         }
         
         .metric-value {
-            font-size: 2.2rem; 
+            font-size: 2.5rem; 
             font-weight: 700;
-            margin-top: 0.5rem;
-            line-height: 1.1;
+            line-height: 1;
             white-space: nowrap !important;
             display: inline-block;
         }
         
-        .text-green { color: #10b981; }
-        .text-red { color: #ef4444; }
-        .text-blue { color: #3b82f6; }
-        .text-orange { color: #f97316; }
+        .text-green { color: #34d399; }
+        .text-red { color: #f87171; }
+        .text-blue { color: #60a5fa; }
+        .text-orange { color: #fb923c; }
         
         .custom-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.875rem;
-            color: #e2e8f0;
+            font-size: 0.85rem;
+            color: #d1d5db;
         }
         .custom-table th {
-            background-color: rgba(15, 23, 42, 0.5);
-            color: #94a3b8;
-            padding: 1rem;
+            background-color: transparent;
+            color: #9ca3af;
+            padding: 0.75rem 1rem;
             text-align: left;
-            border-bottom: 1px solid #334155;
-            font-weight: 600;
+            border-bottom: 1px solid #374151;
+            font-weight: 500;
         }
         .custom-table td {
-            padding: 1rem;
-            border-bottom: 1px solid #1e293b;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #1f2937;
+            vertical-align: middle;
         }
-        .badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(16, 185, 129, 0.3);}
-        .badge-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(239, 68, 68, 0.3);}
+        .badge-green { border: 1px solid #059669; color: #34d399; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.05em; }
+        .badge-red { border: 1px solid #dc2626; color: #f87171; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.7rem; letter-spacing: 0.05em; }
         
+        .insight-card-red {
+            background-color: #2a161f;
+            border-left: 4px solid #ef4444;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .insight-card-green {
+            background-color: #132724;
+            border-left: 4px solid #10b981;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .insight-card-orange {
+            background-color: #2c1f16;
+            border-left: 4px solid #f97316;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .insight-title {
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .insight-text {
+            color: #cbd5e1;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
         /* ESTILOS PARA IMPRESIÓN (PDF) MEJORADOS */
         @media print {
             body, .stApp { background-color: white !important; color: black !important; }
@@ -195,10 +233,14 @@ def main():
     no_cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    df_tiempos = df_filtered[df_filtered['MEDIDA'].astype(str).str.contains('dia|día', case=False, na=False)]
+    # Identificar métricas financieras para excluirlas del gráfico de tiempos
+    df_finanzas = df_filtered[df_filtered['INDICADOR'].astype(str).str.contains('Facturacion|flete|reconocimiento', case=False, na=False)]
+    
+    # El resto se consideran tiempos/procesos
+    df_tiempos = df_filtered[~df_filtered['INDICADOR'].isin(df_finanzas['INDICADOR'])]
+
     retraso_dias = sum([row['MEDICION REAL'] - row['MEDICION ESPERADA'] for _, row in df_tiempos.iterrows() if (row['MEDICION REAL'] - row['MEDICION ESPERADA']) > 0])
 
-    df_finanzas = df_filtered[df_filtered['INDICADOR'].astype(str).str.contains('Facturacion|flete', case=False, na=False)]
     fuga_costos = 0
     if not df_finanzas.empty:
         # Sumar la diferencia neta (Real - Esperado) para ver el impacto financiero global
@@ -207,8 +249,8 @@ def main():
     # --- HEADER / TÍTULO DINÁMICO ---
     col_t1, col_t2 = st.columns([3, 1])
     with col_t1:
-        st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #94a3b8; font-size: 1rem; margin-top: 0.25rem;">Control de Indicadores de Aduana y Logística</p>', unsafe_allow_html=True)
+        st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.2rem; display: flex; align-items: center; gap: 0.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #64748b; font-size: 0.9rem; margin-top: 0.25rem;">Control de Indicadores de Aduana y Logística</p>', unsafe_allow_html=True)
     with col_t2:
         # Lógica de Estado Mejorada (0-25, 26-50, 51-75, 76-100)
         if salud_pct <= 25:
@@ -235,12 +277,12 @@ def main():
     c1, c2, c3, c4 = st.columns(4)
     
     with c1:
-        color_salud = "text-red" if salud_pct <= 50 else ("text-orange" if salud_pct <= 75 else "text-green")
+        color_salud = "text-red" if salud_pct <= 50 else ("text-orange" if salud_pct <= 75 else "text-orange") # Ajuste color según imagen
         st.markdown(f"""
             <div class="glass-card">
-                <div class="metric-title">Salud Operación <span style="float:right; opacity:0.3; font-size:1.5rem;">❤️‍🩹</span></div>
+                <div class="metric-title">SALUD OPERACIÓN <span style="float:right; font-size:1.2rem;">❤️‍🩹</span></div>
                 <div class="metric-value {color_salud}">{salud_pct:.1f}%</div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">{cumplen} de {total_kpis} logradas</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">{cumplen} de {total_kpis} logradas</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -249,9 +291,9 @@ def main():
         color_alerta = "text-red" if no_cumplen > 0 else "text-green"
         st.markdown(f"""
             <div class="glass-card" style="{border_alerta}">
-                <div class="metric-title">Alertas Activas <span style="float:right; opacity:0.3; font-size:1.5rem;">🚨</span></div>
+                <div class="metric-title">ALERTAS ACTIVAS <span style="float:right; font-size:1.2rem;">🚨</span></div>
                 <div class="metric-value {color_alerta}">{no_cumplen}</div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">Procesos fuera de meta</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">Procesos fuera de meta</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -260,9 +302,9 @@ def main():
         signo_r = "+" if retraso_dias > 0 else ""
         st.markdown(f"""
             <div class="glass-card">
-                <div class="metric-title">Desvío Tiempos <span style="float:right; opacity:0.3; font-size:1.5rem;">⏱️</span></div>
+                <div class="metric-title">DESVÍO TIEMPOS <span style="float:right; font-size:1.2rem;">⏱️</span></div>
                 <div class="metric-value {color_retraso}">{signo_r}{int(retraso_dias)} Días</div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">Retraso acumulado</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">Retraso acumulado</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -271,9 +313,9 @@ def main():
         signo_f = "+" if fuga_costos > 0 else ""
         st.markdown(f"""
             <div class="glass-card">
-                <div class="metric-title">Impacto Financiero <span style="float:right; opacity:0.3; font-size:1.5rem;">💰</span></div>
+                <div class="metric-title">IMPACTO FINANCIERO <span style="float:right; font-size:1.2rem;">💰</span></div>
                 <div class="metric-value {color_finanzas}">{signo_f}${abs(fuga_costos):,.0f}</div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">{'Sobrecosto' if fuga_costos > 0 else 'Ahorro / En meta'}</div>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:0.5rem;">{'Sobrecosto' if fuga_costos > 0 else 'Ahorro / En meta'}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -284,48 +326,48 @@ def main():
     col_g1, col_g2 = st.columns([2, 1])
     
     with col_g1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">⏱️ Brecha de Tiempos (Esperado vs Real)</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">⏱️ Brecha de Tiempos (Esperado vs Real)</h3>', unsafe_allow_html=True)
         if not df_tiempos.empty:
-            df_t = df_tiempos.sort_values('MEDICION ESPERADA', ascending=True)
-            nombres = [str(x)[:25] + '...' if len(str(x)) > 25 else str(x) for x in df_t['INDICADOR']]
+            df_t = df_tiempos.copy() # No ordenar para mantener orden de la tabla original si se desea, o ordenar por expected
+            nombres = [str(x)[:30] + '...' if len(str(x)) > 30 else str(x) for x in df_t['INDICADOR']]
             
             fig1 = go.Figure()
             fig1.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
-            fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
+            fig1.update_yaxes(showgrid=False, zeroline=False) # Quitar grid horizontal para mayor limpieza
 
             # Líneas conectoras
             for i in range(len(df_t)):
                 esp = df_t['MEDICION ESPERADA'].iloc[i]
                 real = df_t['MEDICION REAL'].iloc[i]
-                color_linea = 'rgba(239, 68, 68, 0.8)' if real > esp else 'rgba(148, 163, 184, 0.3)' 
+                color_linea = '#ef4444' if real > esp else 'rgba(148, 163, 184, 0.2)' 
                 fig1.add_trace(go.Scatter(
                     x=[esp, real], y=[nombres[i], nombres[i]],
-                    mode='lines', line=dict(color=color_linea, width=3),
+                    mode='lines', line=dict(color=color_linea, width=2),
                     showlegend=False, hoverinfo='skip'
                 ))
             
-            # Puntos Meta
+            # Puntos Meta (Cuadrado Azul)
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION ESPERADA'], y=nombres,
                 mode='markers', name='Meta',
-                marker=dict(color='#3b82f6', size=10, symbol='square'),
+                marker=dict(color='#3b82f6', size=8, symbol='square'),
                 hovertext=df_t['INDICADOR'], hoverinfo='text+x'
             ))
             
-            # Puntos Real
+            # Puntos Real (Círculo Verde o Rojo)
             colores_real = ['#ef4444' if r > e else '#10b981' for r, e in zip(df_t['MEDICION REAL'], df_t['MEDICION ESPERADA'])]
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION REAL'], y=nombres,
                 mode='markers', name='Real',
-                marker=dict(color=colores_real, size=12, symbol='circle', line=dict(color='#0f172a', width=2)),
+                marker=dict(color=colores_real, size=8, symbol='circle'),
                 hovertext=df_t['INDICADOR'], hoverinfo='text+x'
             ))
             
             fig1.update_layout(
-                height=350, margin=dict(l=10, r=20, t=30, b=50),
+                height=350, margin=dict(l=10, r=20, t=10, b=30),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=12))
+                font=dict(color='#94a3b8', family='Inter', size=11),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=11), itemwidth=30)
             )
             fig1.update_yaxes(autorange="reversed") 
             st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
@@ -334,19 +376,21 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_g2:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">🎯 Distribución de Cumplimiento</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:0.5rem; font-weight:600;">🎯 Distribución de Cumplimiento</h3>', unsafe_allow_html=True)
         fig3 = go.Figure(data=[go.Pie(
             labels=['Cumplen', 'Fuera de Meta'], 
             values=[cumplen, no_cumplen],
             hole=0.6,
             marker_colors=['#10b981', '#ef4444'],
-            textinfo='percent+value'
+            textinfo='percent+value',
+            textfont=dict(color='white')
         )])
         fig3.update_layout(
-            height=280, margin=dict(l=10, r=10, t=20, b=20),
+            height=300, margin=dict(l=10, r=10, t=20, b=20),
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-            font=dict(color='#f8fafc', family='Inter'),
-            legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
+            font=dict(color='#9ca3af', family='Inter'),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5),
+            showlegend=True
         )
         st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
@@ -357,29 +401,32 @@ def main():
     col_b1, col_b2 = st.columns([2.5, 1])
     
     with col_b1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📊 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">📊 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
         tabla_html = "<div style='overflow-x:auto;'><table class='custom-table'><thead><tr><th>Indicador</th><th>Meta</th><th>Esperado</th><th>Real</th><th>Estado</th></tr></thead><tbody>"
         for _, row in df_filtered.iterrows():
-            indicador = str(row['INDICADOR'])[:50] + "..." if len(str(row['INDICADOR'])) > 50 else row['INDICADOR']
+            # Truncar un poco menos para mejor lectura
+            indicador = str(row['INDICADOR'])[:60] + "..." if len(str(row['INDICADOR'])) > 60 else row['INDICADOR']
             meta = row['META'] if 'META' in df_filtered.columns else '-'
             esp = row['MEDICION ESPERADA']
             real = row['MEDICION REAL']
             estado = row['CUMPLIMIENTO']
             
             badge = f"<span class='badge-green'>CUMPLE</span>" if estado == 'cumple' else f"<span class='badge-red'>NO CUMPLE</span>"
-            color_row = "color: #ef4444; font-weight:600;" if estado == 'no cumple' else "color: #10b981; font-weight:600;"
+            color_real = "color: #ef4444; font-weight:600;" if estado == 'no cumple' else "color: #10b981; font-weight:600;"
             
-            tabla_html += f"<tr><td>{indicador}</td><td>{meta}</td><td>{esp}</td><td style='{color_row}'>{real}</td><td>{badge}</td></tr>"
+            # Formatear números si son enteros para que no salgan .0 si no es necesario
+            esp_str = f"{int(esp)}" if esp % 1 == 0 else f"{esp}"
+            real_str = f"{int(real)}" if real % 1 == 0 else f"{real}"
+            
+            tabla_html += f"<tr><td>{indicador}</td><td>{meta}</td><td>{esp_str}</td><td style='{color_real}'>{real_str}</td><td>{badge}</td></tr>"
         
         tabla_html += "</tbody></table></div>"
         st.markdown(tabla_html, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col_b2:
-        st.markdown('<div class="glass-card" style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(59, 130, 246, 0.3);"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">💡 Insights y Diagnóstico</h3>', unsafe_allow_html=True)
-        
-        # Evaluar todo (Lo malo y lo bueno)
+        st.markdown('<div style="margin-top: 0.5rem;"><h3 class="text-white" style="font-size:1rem; margin-bottom:1rem; font-weight:600;">💡 Insights y Diagnóstico</h3>', unsafe_allow_html=True)
         
         # 1. Analizar Cuellos de Botella (Lo Malo)
         peor_desfase_tiempo = df_tiempos[df_tiempos['CUMPLIMIENTO'] == 'no cumple'].copy()
@@ -392,18 +439,22 @@ def main():
             pct_retraso = ((real_peor - esp_peor) / esp_peor) * 100 if esp_peor > 0 else 0
             
             st.markdown(f"""
-            <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #ef4444; margin-bottom: 0.8rem;">
-                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🔴 Mayor Retraso</h4>
-                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">El proceso <strong>"{nombre_peor}"</strong> está tardando un {pct_retraso:.0f}% más de lo estipulado ({real_peor} vs {esp_peor} días).</p>
+            <div class="insight-card-red">
+                <div class="insight-title">
+                    <span style="color:#ef4444; font-size:1.2rem;">🔴</span> Mayor Retraso
+                </div>
+                <p class="insight-text">El proceso <strong>"{nombre_peor}"</strong> está tardando un {pct_retraso:.0f}% más de lo estipulado ({int(real_peor)} vs {int(esp_peor)} días).</p>
             </div>
             """, unsafe_allow_html=True)
             
         # 2. Analizar Sobrecostos (Lo Malo)
         if fuga_costos > 0:
             st.markdown(f"""
-            <div style="background: rgba(249, 115, 22, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #f97316; margin-bottom: 0.8rem;">
-                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🟠 Alerta Financiera</h4>
-                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Las desviaciones están generando un sobrecosto acumulado de <strong>${fuga_costos:,.0f}</strong> frente a lo cotizado en los rubros analizados.</p>
+            <div class="insight-card-orange">
+                <div class="insight-title">
+                    <span style="color:#f97316; font-size:1.2rem;">🟠</span> Alerta Financiera
+                </div>
+                <p class="insight-text">Las desviaciones están generando un sobrecosto acumulado de <strong>${fuga_costos:,.0f}</strong> frente a lo cotizado.</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -412,27 +463,31 @@ def main():
         if not mejores_tiempos.empty:
             num_aciertos = len(mejores_tiempos)
             st.markdown(f"""
-            <div style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #10b981; margin-bottom: 0.8rem;">
-                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🟢 Eficiencia Operativa</h4>
-                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Hay <strong>{num_aciertos} métricas de tiempo</strong> que se están cumpliendo a la perfección dentro del SLA esperado.</p>
+            <div class="insight-card-green">
+                <div class="insight-title">
+                    <span style="color:#10b981; font-size:1.2rem;">🟢</span> Eficiencia Operativa
+                </div>
+                <p class="insight-text">Hay <strong>{num_aciertos} métricas de tiempo</strong> que se están cumpliendo a la perfección dentro del SLA esperado.</p>
             </div>
             """, unsafe_allow_html=True)
 
         # 4. Analizar Ahorros (Lo Bueno)
         if fuga_costos < 0:
             st.markdown(f"""
-            <div style="background: rgba(59, 130, 246, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #3b82f6; margin-bottom: 0.8rem;">
-                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🔵 Ahorro Financiero</h4>
-                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Excelente gestión: se ha logrado una reducción de costos facturados por <strong>${abs(fuga_costos):,.0f}</strong> respecto al presupuesto base.</p>
+            <div class="insight-card-green" style="border-left-color: #3b82f6;">
+                <div class="insight-title">
+                    <span style="color:#3b82f6; font-size:1.2rem;">🔵</span> Ahorro Financiero
+                </div>
+                <p class="insight-text">Excelente gestión: se ha logrado un ahorro de <strong>${abs(fuga_costos):,.0f}</strong> respecto al presupuesto base.</p>
             </div>
             """, unsafe_allow_html=True)
             
         # Mensaje de paz si no hay nada malo (Cero sobrecostos y cero retrasos)
         if no_cumplen == 0:
              st.markdown("""
-                <div style="background: rgba(16, 185, 129, 0.15); padding: 1rem; border-radius: 0.5rem; border: 1px dashed #10b981; margin-top: 1rem; text-align: center;">
-                    <p style="color: #10b981; font-size: 0.9rem; font-weight: 600; margin: 0;">🏆 Operación Excelente</p>
-                    <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0.25rem 0 0 0;">No se detectan desviaciones ni cuellos de botella en la información cargada.</p>
+                <div class="insight-card-green">
+                    <div class="insight-title">🏆 Operación Excelente</div>
+                    <p class="insight-text">No se detectan desviaciones ni cuellos de botella en la información actual.</p>
                 </div>
                 """, unsafe_allow_html=True)
             
