@@ -94,6 +94,8 @@ def cargar_datos_gsheets(url):
         csv_url = convertir_url_gsheets(url)
         df = pd.read_csv(csv_url)
         df.columns = [str(c).strip() for c in df.columns]
+        # Reemplazar el nombre del indicador si viene de gsheets original
+        df['INDICADOR'] = df['INDICADOR'].astype(str).str.replace('Facturacion reconocimiento Vs cotizacion proveedor', 'Impacto proveedor', case=False)
         return df
     except Exception as e:
         data = [
@@ -104,7 +106,7 @@ def cargar_datos_gsheets(url):
             {"INDICADOR": "Tiempo de Disposición en Depósito", "TIPO": "Operativo", "META": "≤ 4 días", "MEDICION ESPERADA": 5, "MEDICION REAL": 7, "%": 71.4, "CUMPLIMIENTO": "no cumple"},
             {"INDICADOR": "Eficiencia reconocimiento", "TIPO": "Operativo", "META": "(=) 0", "MEDICION ESPERADA": 6, "MEDICION REAL": 4, "%": 100, "CUMPLIMIENTO": "cumple"},
             {"INDICADOR": "Reporte novedades e inconsistencias reconocimiento", "TIPO": "Operativo", "META": "≤ 2 dia", "MEDICION ESPERADA": 6, "MEDICION REAL": 8, "%": 75, "CUMPLIMIENTO": "no cumple"},
-            {"INDICADOR": "Facturacion reconocimiento Vs cotizacion proveedor", "TIPO": "Financiero", "META": "(=) 0", "MEDICION ESPERADA": 700, "MEDICION REAL": 800, "%": 87.5, "CUMPLIMIENTO": "no cumple"}
+            {"INDICADOR": "Impacto proveedor", "TIPO": "Financiero", "META": "(=) 0", "MEDICION ESPERADA": 700, "MEDICION REAL": 800, "%": 87.5, "CUMPLIMIENTO": "no cumple"}
         ]
         return pd.DataFrame(data)
 
@@ -121,6 +123,9 @@ def main():
             st.rerun()
 
     df = cargar_datos_gsheets(gsheet_url)
+    
+    # Asegurar cambio también directamente en caso de que Google Sheets contenga el texto anterior
+    df['INDICADOR'] = df['INDICADOR'].astype(str).str.replace('Facturacion reconocimiento Vs cotizacion proveedor', 'Impacto proveedor', case=False)
 
     for col in ['MEDICION ESPERADA', 'MEDICION REAL']:
         if col in df.columns:
@@ -182,7 +187,7 @@ def main():
         ind_upper = str(row['INDICADOR']).upper()
         esp = row['MEDICION ESPERADA']
         real = row['MEDICION REAL']
-        if "RECONOCIMIENTO" in ind_upper:
+        if "RECONOCIMIENTO" in ind_upper or "IMPACTO PROVEEDOR" in ind_upper:
             diff = real - esp
             if diff > 0:
                 fuga_reconocimiento += diff
@@ -234,9 +239,9 @@ def main():
         texto_rec = f"${fuga_reconocimiento:,.0f}" if fuga_reconocimiento > 0 else "$0 (Óptimo)"
         st.markdown(f"""
         <div class="kpi-card">
-            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Reconoc.</span>
+            <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Proveedor</span>
             <div style="font-size: 1.4rem; font-weight: 700; color: {color_rec}; margin-top: 0.2rem;">{texto_rec}</div>
-            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Reconoc. vs Cotización</div>
+            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Real vs Cotización</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -350,7 +355,7 @@ def main():
             estado = str(row['CUMPLIMIENTO']).lower()
             
             ind_upper = ind.upper()
-            es_financiero = "FACTURACION" in ind_upper or "FLETE" in ind_upper or "COSTO" in ind_upper
+            es_financiero = "FACTURACION" in ind_upper or "FLETE" in ind_upper or "COSTO" in ind_upper or "IMPACTO PROVEEDOR" in ind_upper
 
             if estado == 'cumple':
                 card_class = "insight-card-green"
