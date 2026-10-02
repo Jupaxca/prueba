@@ -37,9 +37,9 @@ st.markdown("""
             max-width: 96% !important;
         }
         
-        /* Ocultar elementos predeterminados molestos de Streamlit */
-        header {visibility: hidden;}
-        .css-15zrgzn {display: none;}
+        /* Ocultar el menú inferior predeterminado, pero NO el header superior */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
         
         /* Estilos para las tarjetas (Cards) - AHORA MÁS REDONDEADAS Y ESPACIOSAS */
         .glass-card {
@@ -61,10 +61,11 @@ st.markdown("""
             letter-spacing: 0.05em;
         }
         .metric-value {
-            font-size: 2.5rem; /* Ligeramente más grande */
+            font-size: 2.2rem; /* Ligeramente más pequeño para evitar saltos de línea */
             font-weight: 700;
             margin-top: 0.5rem;
             line-height: 1.1;
+            white-space: nowrap; /* Evita que el % se baje de línea */
         }
         .text-green { color: #10b981; }
         .text-red { color: #ef4444; }
@@ -133,17 +134,7 @@ def load_data(url):
         return None, str(e)
 
 def main():
-    # --- HEADER / TÍTULO ---
-    col_t1, col_t2 = st.columns([3, 1])
-    with col_t1:
-        st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #94a3b8; font-size: 1rem; margin-top: 0.25rem;">Control de Indicadores de Aduana y Logística - Corte Actual</p>', unsafe_allow_html=True)
-    with col_t2:
-        st.markdown('<div style="text-align: right; padding-top: 1.5rem;"><span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem;">⚠️ Estado: Atención Requerida</span></div>', unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True) # Espaciador
-
-    # --- BARRA LATERAL ---
+    # --- BARRA LATERAL (Cargamos los datos primero) ---
     with st.sidebar:
         st.markdown('<h2 style="color:white; font-weight: 600;">🔎 Filtros</h2>', unsafe_allow_html=True)
         
@@ -173,11 +164,11 @@ def main():
             if filtro_texto:
                 df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
     
-    if df_filtered is None or df_filtered.empty:
+    if df is None or df.empty or df_filtered is None or df_filtered.empty:
         st.warning("No hay datos para mostrar con los filtros actuales.")
         return
 
-    # --- MOTOR ANALÍTICO ---
+    # --- MOTOR ANALÍTICO (Se calcula primero para conocer el estado general) ---
     total_kpis = len(df_filtered)
     cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'cumple'])
     no_cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'no cumple'])
@@ -196,6 +187,22 @@ def main():
     flete_esperado = df_finanzas[df_finanzas['INDICADOR'].str.contains('flete', case=False, na=False)]['MEDICION ESPERADA'].sum()
     flete_real = df_finanzas[df_finanzas['INDICADOR'].str.contains('flete', case=False, na=False)]['MEDICION REAL'].sum()
     fuga_costos -= (flete_esperado - flete_real)
+
+    # --- HEADER / TÍTULO DINÁMICO ---
+    col_t1, col_t2 = st.columns([3, 1])
+    with col_t1:
+        st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #94a3b8; font-size: 1rem; margin-top: 0.25rem;">Control de Indicadores de Aduana y Logística - Corte Actual</p>', unsafe_allow_html=True)
+    with col_t2:
+        # Lógica dinámica del estado de la operación
+        if no_cumplen > 0:
+            html_estado = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; display: inline-block;">⚠️ Estado: Atención Requerida</span>'
+        else:
+            html_estado = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; display: inline-block;">🟢 Estado: Óptimo</span>'
+            
+        st.markdown(f'<div style="text-align: right; padding-top: 1.5rem;">{html_estado}</div>', unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True) # Espaciador
 
     # --- 1. SECCIÓN DE SCORECARDS ---
     c1, c2, c3, c4 = st.columns(4)
@@ -272,25 +279,57 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_g2:
-        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Eje Financiero</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Impacto Financiero (Cotizado vs Real)</h3>', unsafe_allow_html=True)
         if not df_finanzas.empty:
-            nombres = ['Flete Intl.' if 'flete' in str(x).lower() else 'Reconocimiento' for x in df_finanzas['INDICADOR']]
-            esperado = df_finanzas['MEDICION ESPERADA']
-            real = df_finanzas['MEDICION REAL']
+            # Calculamos los totales base
+            total_esperado = df_finanzas['MEDICION ESPERADA'].sum()
+            total_real = df_finanzas['MEDICION REAL'].sum()
             
-            colores_real2 = ['#ef4444' if r > e else '#10b981' for r, e in zip(real, esperado)]
+            # Preparamos las etiquetas y valores para la cascada
+            labels = ['Total Cotizado']
+            values = [total_esperado]
+            measures = ['absolute']
             
-            fig2 = go.Figure()
-            fig2.add_trace(go.Bar(x=nombres, y=esperado, name='Cotizado ($)', marker_color='#3b82f6', opacity=0.8))
-            fig2.add_trace(go.Bar(x=nombres, y=real, name='Facturado ($)', marker_color=colores_real2))
+            # Para cada indicador financiero, calculamos la variación (Real - Esperado)
+            # Un valor positivo significa que costó más de lo esperado (sobrecosto)
+            # Un valor negativo significa que costó menos de lo esperado (ahorro)
+            for _, row in df_finanzas.iterrows():
+                variacion = row['MEDICION REAL'] - row['MEDICION ESPERADA']
+                nombre_corto = 'Flete' if 'flete' in str(row['INDICADOR']).lower() else ('Reconoc.' if 'reconocimiento' in str(row['INDICADOR']).lower() else str(row['INDICADOR'])[:15])
+                
+                labels.append(nombre_corto)
+                values.append(variacion)
+                measures.append('relative')
+            
+            # Agregamos la columna de total final
+            labels.append('Total Facturado')
+            values.append(0) # El valor es 0 porque es una medida 'total' que se calcula sola
+            measures.append('total')
+
+            fig2 = go.Figure(go.Waterfall(
+                name="20", orientation="v",
+                measure=measures,
+                x=labels,
+                textposition="outside",
+                text=[f"${v:,.0f}" if i != len(values)-1 else f"${total_real:,.0f}" for i, v in enumerate(values)],
+                y=values,
+                connector={"line":{"color":"rgb(63, 63, 63)"}},
+                decreasing={"marker":{"color":"#10b981"}}, # Ahorros en verde
+                increasing={"marker":{"color":"#ef4444"}}, # Sobrecostos en rojo
+                totals={"marker":{"color":"#3b82f6"}}      # Totales en azul
+            ))
             
             fig2.update_layout(
-                barmode='group', height=320, 
-                margin=dict(l=20, r=20, t=20, b=40),
+                height=320, 
+                margin=dict(l=20, r=20, t=30, b=40),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                showlegend=False,
+                waterfallgap=0.3
             )
+            # Formatear el eje Y como moneda
+            fig2.update_yaxes(tickprefix="$", tickformat=",.0f")
+            
             st.plotly_chart(fig2, use_container_width=True)
         else:
             st.info("Sin datos financieros.")
