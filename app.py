@@ -12,12 +12,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS limpios y seguros (Sin interferir con los iconos de la barra lateral)
+# Estilos CSS limpios y seguros exclusivamente para el contenido principal
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
-        .main, p, span, div, th, td {
+        .main p, .main span, .main div, .main th, .main td {
             font-family: 'Inter', sans-serif !important;
         }
         .main {
@@ -45,29 +45,29 @@ st.markdown("""
             background-color: #2a161f;
             border-left: 4px solid #ef4444;
             border-radius: 0.5rem;
-            padding: 0.4rem 0.6rem;
-            margin-bottom: 0.4rem;
+            padding: 0.35rem 0.5rem;
+            margin-bottom: 0.35rem;
         }
         .insight-card-green {
             background-color: #132724;
             border-left: 4px solid #10b981;
             border-radius: 0.5rem;
-            padding: 0.4rem 0.6rem;
-            margin-bottom: 0.4rem;
+            padding: 0.35rem 0.5rem;
+            margin-bottom: 0.35rem;
         }
         .insight-title {
             color: white;
-            font-size: 0.7rem;
+            font-size: 0.68rem;
             font-weight: 600;
-            margin-bottom: 0.1rem;
+            margin-bottom: 0.05rem;
             display: flex;
             align-items: center;
             gap: 0.3rem;
         }
         .insight-text {
             color: #cbd5e1;
-            font-size: 0.65rem;
-            line-height: 1.2;
+            font-size: 0.62rem;
+            line-height: 1.15;
             margin: 0;
         }
         @media print {
@@ -112,8 +112,7 @@ def cargar_datos_gsheets(url):
 def main():
     st.sidebar.markdown("## 🔍 Filtros")
     
-    with st.sidebar.expander("⚙️ Origen de Datos", expanded=False):
-        gsheet_url = st.text_input("URL de Google Sheets", value=DEFAULT_GSHEET_URL)
+    gsheet_url = st.sidebar.text_input("URL de Google Sheets", value=DEFAULT_GSHEET_URL)
     
     if st.sidebar.button("🔄 Refrescar Datos", use_container_width=True):
         with st.spinner("Actualizando conexión en vivo..."):
@@ -142,7 +141,7 @@ def main():
     no_cumplen = len(df[df['CUMPLIMIENTO'].astype(str).str.lower() == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    # Lógica de estados según rangos solicitados
+    # Lógica de estados según rangos solicitados (0-25 Critico, 26-50 Malo, 51-75 Medio Bueno, 76-100 Bueno)
     if salud_pct <= 25:
         estado_badge = "🔴 ESTADO CRÍTICO: Acción Inmediata Requerida"
         badge_bg = "rgba(239, 68, 68, 0.2)"
