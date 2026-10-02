@@ -6,7 +6,7 @@ import time
 
 # Configuración de la página de Streamlit
 st.set_page_config(
-    page_title="Dashboard Gerencial - Aduanas y Logística",
+    page_title="Tablero de Control - Aduanas y Logística",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -100,7 +100,7 @@ def cargar_datos_gsheets(url):
         data = [
             {"INDICADOR": "Cumplimiento de Itinerario (Transito origen - destino )", "TIPO": "Operativo", "META": "≥ 90%", "MEDICION ESPERADA": 2, "MEDICION REAL": 2, "%": 100, "CUMPLIMIENTO": "cumple"},
             {"INDICADOR": "Tiempo de Respuesta en Cotización", "TIPO": "Operativo", "META": "≤ 2 dia", "MEDICION ESPERADA": 5, "MEDICION REAL": 5, "%": 100, "CUMPLIMIENTO": "cumple"},
-            {"INDICADOR": "Cotizacion flete internacional Vs Facturacion del proceso", "TIPO": "Financiero", "META": "(=) 0", "MEDICION ESPERADA": 2, "MEDICION REAL": 2, "%": 100, "CUMPLIMIENTO": "cumple"},
+            {"INDICADOR": "Cotizacion flete internacional Vs Facturacion del proceso", "TIPO": "Financiero", "META": "(=) 0", "MEDICION ESPERADA": 500, "MEDICION REAL": 750, "%": 66.6, "CUMPLIMIENTO": "no cumple"},
             {"INDICADOR": "Tiempo cierre documental", "TIPO": "Operativo", "META": "≤ 3 días", "MEDICION ESPERADA": 4, "MEDICION REAL": 9, "%": 44.4, "CUMPLIMIENTO": "no cumple"},
             {"INDICADOR": "Tiempo de Disposición en Depósito", "TIPO": "Operativo", "META": "≤ 4 días", "MEDICION ESPERADA": 5, "MEDICION REAL": 7, "%": 71.4, "CUMPLIMIENTO": "no cumple"},
             {"INDICADOR": "Eficiencia reconocimiento", "TIPO": "Operativo", "META": "(=) 0", "MEDICION ESPERADA": 6, "MEDICION REAL": 4, "%": 100, "CUMPLIMIENTO": "cumple"},
@@ -164,7 +164,7 @@ def main():
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
             <div>
                 <h1 style="font-size: 1.8rem; font-weight: 700; background: linear-gradient(to right, #60a5fa, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;">
-                    🚢 Command Center Operativo
+                    📊 Tablero de Control
                 </h1>
                 <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.2rem;">Control Integral de Indicadores de Aduana y Logística</p>
             </div>
@@ -227,7 +227,7 @@ def main():
         st.markdown(f"""
         <div class="kpi-card">
             <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Flete</span>
-            <div style="font-size: 1.4rem; font-weight: 700; color: {color_flete}; margin-top: 0.2rem;">{texto_flete}</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: {color_flete}; margin-top: 0.2rem;">{texto_flete}</div>
             <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Flete vs Facturación</div>
         </div>
         """, unsafe_allow_html=True)
@@ -237,7 +237,7 @@ def main():
         st.markdown(f"""
         <div class="kpi-card">
             <span style="color: #94a3b8; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">Impacto Proveedor</span>
-            <div style="font-size: 1.4rem; font-weight: 700; color: {color_prov}; margin-top: 0.2rem;">{texto_prov}</div>
+            <div style="font-size: 1.3rem; font-weight: 700; color: {color_prov}; margin-top: 0.2rem;">{texto_prov}</div>
             <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Real vs Cotización</div>
         </div>
         """, unsafe_allow_html=True)
