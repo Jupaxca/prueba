@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -5,6 +6,7 @@ import requests
 import io
 import numpy as np
 import streamlit.components.v1 as components
+import time
 
 # 1. Configuración de la página
 st.set_page_config(
@@ -14,14 +16,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Inyección de CSS Premium (Corregido para Iconos y Print)
+# 2. Inyección de CSS Premium (Corregida para NO romper la UI nativa)
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-        /* Aplicar Inter solo a texto, EXCLUIR iconos de Streamlit (Material Symbols) */
-        html, body, div:not(.stIcon):not([class*="icon"]):not(.material-icons), span:not(.stIcon):not([class*="icon"]):not(.material-icons), p, h1, h2, h3, h4, h5, h6, table, th, td {
-            font-family: 'Inter', sans-serif;
+        /* Aplicar Inter de forma segura, solo a elementos de texto principales */
+        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6 {
+            font-family: 'Inter', sans-serif !important;
         }
 
         .stApp {
@@ -35,10 +37,9 @@ st.markdown("""
             max-width: 96% !important;
         }
         
-        /* Ocultar header default */
-        header[data-testid="stHeader"] { background-color: transparent !important; }
-        header[data-testid="stHeader"] .st-emotion-cache-18ni7ap { display: none; }
+        /* Ocultar footer pero DEJAR el header visible para las opciones */
         footer {visibility: hidden;}
+        header[data-testid="stHeader"] { background-color: transparent !important; }
         
         .glass-card {
             background: rgba(30, 41, 59, 0.7);
@@ -147,6 +148,7 @@ def main():
         st.markdown('<h2 style="color:white; font-weight: 600;">🔎 Filtros</h2>', unsafe_allow_html=True)
         default_url = "https://docs.google.com/spreadsheets/d/1l5rXqFgHcUyNSQB_s82UTrHxVlpV6GHb4Yobegd-t2g/edit?usp=drivesdk"
         
+        # El expander nativo funciona bien ahora que el CSS se corrigió
         with st.expander("⚙️ Origen de Datos", expanded=False):
             url_input = st.text_input("URL de Google Sheets", default_url, key="sheet_url")
             
@@ -165,8 +167,11 @@ def main():
                 df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
         
         st.markdown("---")
-        if st.button("🔄 Refrescar", use_container_width=True):
-            st.cache_data.clear()
+        # Botón de refrescar corregido con un pequeño delay para feedback visual
+        if st.button("🔄 Refrescar Datos", use_container_width=True):
+            with st.spinner('Actualizando...'):
+                st.cache_data.clear()
+                time.sleep(0.5)
             st.rerun()
             
     if error:
@@ -246,19 +251,7 @@ def main():
             </div>
         """, unsafe_allow_html=True)
         
-    with c4:
-        signo = "+" if fuga_costos > 0 else ""
-        color_fuga = "text-red" if fuga_costos > 0 else "text-green"
-        texto_fuga = "Sobrecosto" if fuga_costos > 0 else "Ahorro Neto"
-        st.markdown(f"""
-            <div class="glass-card">
-                <div class="metric-title">Desvío Financiero <span style="float:right; opacity:0.3; font-size:1.5rem;">💰</span></div>
-                <div class="metric-value {color_fuga}">{signo}${abs(fuga_costos):,.0f}</div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">{texto_fuga}</div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    # --- 2. GRÁFICOS (Incluyendo nueva recomendación Dumbbell) ---
+    # --- 2. GRÁFICOS (Corregidos) ---
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -268,22 +261,28 @@ def main():
             nombres = [str(x)[:20] + '...' if len(str(x)) > 20 else str(x) for x in df_t['INDICADOR']]
             
             fig1 = go.Figure()
-            # Línea conectora
+            
+            # Cuadrícula de fondo ligera para guiar el ojo
+            fig1.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
+            fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
+
+            # Línea conectora más delgada
             for i in range(len(df_t)):
                 esp = df_t['MEDICION ESPERADA'].iloc[i]
                 real = df_t['MEDICION REAL'].iloc[i]
-                color_linea = '#ef4444' if real > esp else '#10b981'
+                # Si cumple es gris (sin alerta), si no cumple es rojo
+                color_linea = 'rgba(239, 68, 68, 0.5)' if real > esp else 'rgba(148, 163, 184, 0.2)' 
                 fig1.add_trace(go.Scatter(
                     x=[esp, real], y=[nombres[i], nombres[i]],
-                    mode='lines', line=dict(color=color_linea, width=3),
+                    mode='lines', line=dict(color=color_linea, width=2),
                     showlegend=False, hoverinfo='skip'
                 ))
             
-            # Puntos Esperados
+            # Puntos Esperados (Meta)
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION ESPERADA'], y=nombres,
                 mode='markers', name='Meta',
-                marker=dict(color='#3b82f6', size=12, symbol='circle'),
+                marker=dict(color='#3b82f6', size=10, symbol='square'), # Cuadrado azul para meta
                 hovertext=df_t['INDICADOR'], hoverinfo='text+x'
             ))
             
@@ -292,45 +291,51 @@ def main():
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION REAL'], y=nombres,
                 mode='markers', name='Real',
-                marker=dict(color=colores_real, size=12, symbol='circle', line=dict(color='white', width=1)),
+                marker=dict(color=colores_real, size=12, symbol='circle', line=dict(color='#0f172a', width=2)),
                 hovertext=df_t['INDICADOR'], hoverinfo='text+x'
             ))
             
             fig1.update_layout(
-                height=320, margin=dict(l=10, r=20, t=20, b=30),
+                height=320, margin=dict(l=10, r=20, t=30, b=30),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=10)),
+                xaxis_title="Días"
             )
-            fig1.update_yaxes(autorange="reversed") # Mostrar indicador con menor meta arriba
-            st.plotly_chart(fig1, use_container_width=True)
+            fig1.update_yaxes(autorange="reversed") 
+            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}) # Oculta la barra de herramientas ruidosa
         else:
             st.info("Sin datos de tiempos.")
         st.markdown('</div>', unsafe_allow_html=True)
-
     with col_g2:
         st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Indicadores Financieros ($)</h3>', unsafe_allow_html=True)
         if not df_finanzas.empty:
-            nombres_finanzas = [str(x)[:20] + '...' if len(str(x)) > 20 else str(x) for x in df_finanzas['INDICADOR']]
+            # Acortar nombres para que entren bien
+            nombres_finanzas = [str(x)[:15] + '...' if len(str(x)) > 15 else str(x) for x in df_finanzas['INDICADOR']]
             esp_fin = df_finanzas['MEDICION ESPERADA']
             real_fin = df_finanzas['MEDICION REAL']
             
             colores_fin_real = ['#10b981' if r <= e else '#ef4444' for r, e in zip(real_fin, esp_fin)]
 
             fig2 = go.Figure()
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=esp_fin, name='Esperado', marker_color='#3b82f6', opacity=0.8))
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=real_fin, name='Real', marker_color=colores_fin_real))
+            # Usar barras ligeramente más delgadas
+            fig2.add_trace(go.Bar(x=nombres_finanzas, y=esp_fin, name='Cotizado/Esp.', marker_color='rgba(59, 130, 246, 0.7)', width=0.35))
+            fig2.add_trace(go.Bar(x=nombres_finanzas, y=real_fin, name='Real', marker_color=colores_fin_real, width=0.35))
             
             fig2.update_layout(
                 barmode='group', height=320, 
-                margin=dict(l=20, r=20, t=20, b=50),
+                margin=dict(l=10, r=10, t=30, b=30),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=10)),
+                bargap=0.15 # Espacio entre grupos
             )
-            fig2.update_yaxes(tickprefix="$", tickformat=",.0f")
             
-            st.plotly_chart(fig2, use_container_width=True)
+            # Configurar el eje Y para que se adapte mejor si los valores son muy diferentes (escala logarítmica opcional, pero aquí usaremos lineal ajustada)
+            fig2.update_yaxes(tickprefix="$", tickformat=",.0f", showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)')
+            fig2.update_xaxes(tickangle=-45) # Rotar etiquetas para que no se corten
+            
+            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
         else:
             st.info("Sin datos financieros.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -449,3 +454,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
