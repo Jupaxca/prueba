@@ -313,9 +313,10 @@ def main():
         st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📋 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
         tabla_html = """
+        <div style="overflow-x: auto; max-height: 400px;">
         <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
             <thead>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8;">
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; position: sticky; top: 0; background: #1e293b; z-index: 1;">
                     <th style="padding: 0.6rem;">Indicador</th>
                     <th style="padding: 0.6rem;">Meta</th>
                     <th style="padding: 0.6rem; text-align: center;">Esperado</th>
@@ -340,7 +341,7 @@ def main():
                 </tr>
             """
             
-        tabla_html += "</tbody></table>"
+        tabla_html += "</tbody></table></div>"
         st.markdown(tabla_html, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
