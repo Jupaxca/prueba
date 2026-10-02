@@ -1,10 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import requests
-import io
-import numpy as np
-import streamlit.components.v1 as components
 import time
 
 # 1. Configuración de la página
@@ -15,13 +11,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Inyección de CSS Premium (Corregida para NO romper la UI nativa)
+# 2. Inyección de CSS Premium (Corregida para preservar íconos de Streamlit)
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-        /* Aplicar Inter de forma segura, solo a elementos de texto principales */
-        .stMarkdown, .stText, h1, h2, h3, h4, h5, h6 {
+        /* Aplicar Inter SOLO a elementos de texto para no romper iconos nativos (.stIcon, material-icons, etc) */
+        .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6, .stMarkdown li, .stMarkdown span:not(.stIcon):not([class*="icon"]):not(.material-icons) {
             font-family: 'Inter', sans-serif !important;
         }
 
@@ -36,8 +32,9 @@ st.markdown("""
             max-width: 96% !important;
         }
         
-        /* Ocultar footer pero DEJAR el header visible para las opciones */
+        /* Ocultar footer y botón deploy, pero DEJAR el header para no ocultar el menú de 3 líneas */
         footer {visibility: hidden;}
+        .stDeployButton {display:none;}
         header[data-testid="stHeader"] { background-color: transparent !important; }
         
         .glass-card {
@@ -90,44 +87,41 @@ st.markdown("""
             padding: 1rem;
             border-bottom: 1px solid #1e293b;
         }
-        .badge-green { background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.7rem; white-space: nowrap;}
-        .badge-red { background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-weight: 600; font-size: 0.7rem; white-space: nowrap;}
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(16, 185, 129, 0.3);}
+        .badge-red { background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 0.25rem 0.6rem; border-radius: 9999px; font-weight: 600; font-size: 0.75rem; white-space: nowrap; border: 1px solid rgba(239, 68, 68, 0.3);}
         
-        /* ESTILOS PARA IMPRESIÓN (PDF) */
+        /* ESTILOS PARA IMPRESIÓN (PDF) MEJORADOS */
         @media print {
-            body { background-color: white !important; color: black !important; }
-            .stApp { background-color: white !important; }
-            section[data-testid="stSidebar"] { display: none !important; }
-            .stDeployButton { display: none !important; }
-            header[data-testid="stHeader"] { display: none !important; }
+            body, .stApp { background-color: white !important; color: black !important; }
+            section[data-testid="stSidebar"], .stDeployButton, header[data-testid="stHeader"] { display: none !important; }
             .glass-card { background: white !important; border: 1px solid #ccc !important; box-shadow: none !important; color: black !important; break-inside: avoid; }
             .metric-title { color: #555 !important; }
             .metric-value { color: #000 !important; }
             .text-white { color: black !important; }
-            h1, h2, h3, h4, p { color: black !important; }
-            .custom-table th { background-color: #eee !important; color: black !important; }
-            .custom-table td, .custom-table th { border-bottom: 1px solid #ddd !important; }
-            /* Ocultar botones de Streamlit al imprimir */
-            .stButton { display: none !important; }
-            .print-hide { display: none !important; }
+            h1, h2, h3, h4, p, td, th { color: black !important; }
+            .custom-table th { background-color: #f1f5f9 !important; border-bottom: 2px solid #cbd5e1 !important; }
+            .custom-table td { border-bottom: 1px solid #e2e8f0 !important; }
+            .badge-green { border: 1px solid #10b981 !important; color: #059669 !important; }
+            .badge-red { border: 1px solid #ef4444 !important; color: #dc2626 !important; }
+            .print-hide, .stButton { display: none !important; }
+            /* Forzar a mantener colores de fondo si el navegador lo permite */
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función de conexión a datos
-@st.cache_data(ttl=300)
+# 3. Función de conexión a datos (Directo desde Google Sheets)
+@st.cache_data(ttl=600)
 def load_data(url):
     try:
-        if "/d/" in url:
+        if "docs.google.com/spreadsheets/d/" in url:
             doc_id = url.split("/d/")[1].split("/")[0]
+            # Por defecto exporta la primera hoja visible (suele ser el Tablero)
+            csv_url = f"https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv"
         else:
-            return None, "URL inválida"
+            return None, "URL inválida. Asegúrate de usar un enlace de Google Sheets."
         
-        csv_url = f"https://docs.google.com/spreadsheets/d/{doc_id}/export?format=csv"
-        response = requests.get(csv_url)
-        response.raise_for_status()
-        
-        df = pd.read_csv(io.StringIO(response.text))
+        df = pd.read_csv(csv_url)
         df.columns = [str(col).strip().upper() for col in df.columns]
         
         if 'CUMPLIMIENTO' in df.columns:
@@ -139,45 +133,60 @@ def load_data(url):
                 
         return df, None
     except Exception as e:
-        return None, f"Error de conexión: {str(e)}"
+        return None, f"Error al conectar con Google Sheets: Verifique que el enlace sea público (Cualquier persona con el enlace puede leer). Detalle del error: {str(e)}"
 
 def main():
     # --- BARRA LATERAL ---
     with st.sidebar:
-        st.markdown('<h2 style="color:white; font-weight: 600;">🔎 Filtros</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="color:white; font-weight: 600; margin-bottom:1.5rem;">🔎 Filtros</h2>', unsafe_allow_html=True)
+        
         default_url = "https://docs.google.com/spreadsheets/d/1l5rXqFgHcUyNSQB_s82UTrHxVlpV6GHb4Yobegd-t2g/edit?usp=drivesdk"
         
-        # El expander nativo funciona bien ahora que el CSS se corrigió
-        with st.expander("⚙️ Origen de Datos", expanded=False):
+        # Filtros de Análisis
+        estados = ['Todos', 'cumple', 'no cumple']
+        filtro_estado = st.selectbox("Estado del KPI", estados, index=0)
+        filtro_texto = st.text_input("Buscar...", "", placeholder="ej. Flete, Tiempo...")
+        
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        
+        # Configuración movida abajo y dentro de expander para no ensuciar
+        with st.expander("⚙️ Configuración de Datos", expanded=False):
             url_input = st.text_input("URL de Google Sheets", default_url, key="sheet_url")
-            
-        df, error = load_data(url_input)
+            st.markdown("<p style='font-size:0.75rem; color:#94a3b8;'>El documento debe estar configurado como 'Cualquier persona con el enlace puede leer'.</p>", unsafe_allow_html=True)
         
-        df_filtered = None
-        if df is not None and not df.empty:
-            estados = ['Todos'] + list(df['CUMPLIMIENTO'].dropna().unique())
-            filtro_estado = st.selectbox("Estado del KPI", estados, index=0)
-            filtro_texto = st.text_input("Buscar...", "")
-            
-            df_filtered = df.copy()
-            if filtro_estado != 'Todos':
-                df_filtered = df_filtered[df_filtered['CUMPLIMIENTO'] == filtro_estado]
-            if filtro_texto:
-                df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
-        
-        st.markdown("---")
-        # Botón de refrescar corregido con un pequeño delay para feedback visual
+        st.markdown("<br>", unsafe_allow_html=True)
+        # Botón de refrescar
         if st.button("🔄 Refrescar Datos", use_container_width=True):
-            with st.spinner('Actualizando...'):
+            with st.spinner('Actualizando desde la nube...'):
                 st.cache_data.clear()
-                time.sleep(0.5)
+                time.sleep(0.8)
             st.rerun()
-            
+
+    # Cargar datos
+    df, error = load_data(default_url if 'url_input' not in locals() else url_input)
+    
     if error:
-        st.error(error)
+        st.markdown(f"""
+            <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1.5rem; border-radius: 1rem; margin: 2rem 0;">
+                <h3 style="color: #ef4444; margin-top:0;">Error de Conexión</h3>
+                <p style="color: #cbd5e1;">{error}</p>
+            </div>
+        """, unsafe_allow_html=True)
         return
-    if df is None or df.empty or df_filtered is None or df_filtered.empty:
+        
+    if df is None or df.empty:
         st.warning("No hay datos para mostrar.")
+        return
+
+    # Aplicar filtros
+    df_filtered = df.copy()
+    if filtro_estado != 'Todos':
+        df_filtered = df_filtered[df_filtered['CUMPLIMIENTO'] == filtro_estado]
+    if filtro_texto:
+        df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
+
+    if df_filtered.empty:
+        st.warning("No hay indicadores que coincidan con la búsqueda.")
         return
 
     # --- MOTOR ANALÍTICO ---
@@ -186,12 +195,13 @@ def main():
     no_cumplen = len(df_filtered[df_filtered['CUMPLIMIENTO'] == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    df_tiempos = df_filtered[df_filtered['MEDIDA'].str.contains('dia|día', case=False, na=False)]
+    df_tiempos = df_filtered[df_filtered['MEDIDA'].astype(str).str.contains('dia|día', case=False, na=False)]
     retraso_dias = sum([row['MEDICION REAL'] - row['MEDICION ESPERADA'] for _, row in df_tiempos.iterrows() if (row['MEDICION REAL'] - row['MEDICION ESPERADA']) > 0])
 
-    df_finanzas = df_filtered[df_filtered['INDICADOR'].str.contains('Facturacion|flete', case=False, na=False)]
+    df_finanzas = df_filtered[df_filtered['INDICADOR'].astype(str).str.contains('Facturacion|flete', case=False, na=False)]
     fuga_costos = 0
     if not df_finanzas.empty:
+        # Sumar la diferencia neta (Real - Esperado) para ver el impacto financiero global
         fuga_costos = df_finanzas['MEDICION REAL'].sum() - df_finanzas['MEDICION ESPERADA'].sum()
 
     # --- HEADER / TÍTULO DINÁMICO ---
@@ -200,27 +210,32 @@ def main():
         st.markdown('<h1 style="color: #60a5fa; font-weight: 700; margin-bottom: 0; font-size: 2.5rem;">🚢 Command Center Operativo</h1>', unsafe_allow_html=True)
         st.markdown('<p style="color: #94a3b8; font-size: 1rem; margin-top: 0.25rem;">Control de Indicadores de Aduana y Logística</p>', unsafe_allow_html=True)
     with col_t2:
-        if no_cumplen > 0:
-            html_estado = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block;">⚠️ Atención Requerida</span>'
+        # Lógica de Estado Mejorada (0-25, 26-50, 51-75, 76-100)
+        if salud_pct <= 25:
+            html_estado = '<span style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block; white-space: nowrap;">🔴 Estado: Crítico</span>'
+        elif salud_pct <= 50:
+            html_estado = '<span style="background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block; white-space: nowrap;">🟠 Estado: Malo</span>'
+        elif salud_pct <= 75:
+            html_estado = '<span style="background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block; white-space: nowrap;">🟡 Estado: Medio Bueno</span>'
         else:
-            html_estado = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block;">🟢 Óptimo</span>'
+            html_estado = '<span style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.6rem 1.2rem; border-radius: 9999px; font-weight: 600; font-size: 0.85rem; display: inline-block; white-space: nowrap;">🟢 Estado: Bueno</span>'
             
         st.markdown(f'<div style="text-align: right; padding-top: 1rem;">{html_estado}</div>', unsafe_allow_html=True)
         
-        # Nueva instrucción para PDF amigable (Opción A refinada)
+        # Instrucción para PDF (Nativo)
         st.markdown("""
-            <div class="print-hide" style="text-align: right; margin-top: 0.8rem; font-size: 0.85rem; color: #64748b; background: rgba(30, 41, 59, 0.5); padding: 0.5rem; border-radius: 0.5rem; border: 1px dashed #334155;">
-                💡 Para exportar a PDF presiona <br><b>Ctrl + P</b> (Windows) o <b>Cmd + P</b> (Mac)
+            <div class="print-hide" style="text-align: right; margin-top: 0.8rem; font-size: 0.8rem; color: #cbd5e1; background: rgba(30, 41, 59, 0.6); padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px dashed #475569; display: inline-block; float: right;">
+                💡 Para exportar a PDF presiona <br><b>Ctrl + P</b> (Win) o <b>Cmd + P</b> (Mac)
             </div>
         """, unsafe_allow_html=True)
     
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br><div style='clear:both;'></div>", unsafe_allow_html=True)
 
     # --- 1. SCORECARDS ---
     c1, c2, c3, c4 = st.columns(4)
     
     with c1:
-        color_salud = "text-red" if salud_pct < 50 else ("text-orange" if salud_pct < 80 else "text-green")
+        color_salud = "text-red" if salud_pct <= 50 else ("text-orange" if salud_pct <= 75 else "text-green")
         st.markdown(f"""
             <div class="glass-card">
                 <div class="metric-title">Salud Operación <span style="float:right; opacity:0.3; font-size:1.5rem;">❤️‍🩹</span></div>
@@ -242,50 +257,62 @@ def main():
         
     with c3:
         color_retraso = "text-orange" if retraso_dias > 0 else "text-green"
+        signo_r = "+" if retraso_dias > 0 else ""
         st.markdown(f"""
             <div class="glass-card">
                 <div class="metric-title">Desvío Tiempos <span style="float:right; opacity:0.3; font-size:1.5rem;">⏱️</span></div>
-                <div class="metric-value {color_retraso}">+{int(retraso_dias)} Días</div>
+                <div class="metric-value {color_retraso}">{signo_r}{int(retraso_dias)} Días</div>
                 <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">Retraso acumulado</div>
             </div>
         """, unsafe_allow_html=True)
         
-    # --- 2. GRÁFICOS (Corregidos) ---
-    col_g1, col_g2 = st.columns(2)
+    with c4:
+        color_finanzas = "text-red" if fuga_costos > 0 else "text-green"
+        signo_f = "+" if fuga_costos > 0 else ""
+        st.markdown(f"""
+            <div class="glass-card">
+                <div class="metric-title">Impacto Financiero <span style="float:right; opacity:0.3; font-size:1.5rem;">💰</span></div>
+                <div class="metric-value {color_finanzas}">{signo_f}${abs(fuga_costos):,.0f}</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:0.5rem;">{'Sobrecosto' if fuga_costos > 0 else 'Ahorro / En meta'}</div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # --- 2. GRÁFICO DE TIEMPOS (Brecha / Dumbbell) Y CUMPLIMIENTO GLOBAL ---
+    # Redistribuimos el espacio porque quitamos el gráfico financiero
+    col_g1, col_g2 = st.columns([2, 1])
     
     with col_g1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">⏱️ Brecha de Tiempos (Esperado vs Real)</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">⏱️ Brecha de Tiempos (Esperado vs Real)</h3>', unsafe_allow_html=True)
         if not df_tiempos.empty:
             df_t = df_tiempos.sort_values('MEDICION ESPERADA', ascending=True)
-            nombres = [str(x)[:20] + '...' if len(str(x)) > 20 else str(x) for x in df_t['INDICADOR']]
+            nombres = [str(x)[:25] + '...' if len(str(x)) > 25 else str(x) for x in df_t['INDICADOR']]
             
             fig1 = go.Figure()
-            
-            # Cuadrícula de fondo ligera para guiar el ojo
             fig1.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
             fig1.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
 
-            # Línea conectora más delgada
+            # Líneas conectoras
             for i in range(len(df_t)):
                 esp = df_t['MEDICION ESPERADA'].iloc[i]
                 real = df_t['MEDICION REAL'].iloc[i]
-                # Si cumple es gris (sin alerta), si no cumple es rojo
-                color_linea = 'rgba(239, 68, 68, 0.5)' if real > esp else 'rgba(148, 163, 184, 0.2)' 
+                color_linea = 'rgba(239, 68, 68, 0.8)' if real > esp else 'rgba(148, 163, 184, 0.3)' 
                 fig1.add_trace(go.Scatter(
                     x=[esp, real], y=[nombres[i], nombres[i]],
-                    mode='lines', line=dict(color=color_linea, width=2),
+                    mode='lines', line=dict(color=color_linea, width=3),
                     showlegend=False, hoverinfo='skip'
                 ))
             
-            # Puntos Esperados (Meta)
+            # Puntos Meta
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION ESPERADA'], y=nombres,
                 mode='markers', name='Meta',
-                marker=dict(color='#3b82f6', size=10, symbol='square'), # Cuadrado azul para meta
+                marker=dict(color='#3b82f6', size=10, symbol='square'),
                 hovertext=df_t['INDICADOR'], hoverinfo='text+x'
             ))
             
-            # Puntos Reales
+            # Puntos Real
             colores_real = ['#ef4444' if r > e else '#10b981' for r, e in zip(df_t['MEDICION REAL'], df_t['MEDICION ESPERADA'])]
             fig1.add_trace(go.Scatter(
                 x=df_t['MEDICION REAL'], y=nombres,
@@ -295,55 +322,19 @@ def main():
             ))
             
             fig1.update_layout(
-                height=320, margin=dict(l=10, r=20, t=30, b=30),
+                height=350, margin=dict(l=10, r=20, t=30, b=50),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=10)),
-                xaxis_title="Días"
+                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=12))
             )
             fig1.update_yaxes(autorange="reversed") 
-            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False}) # Oculta la barra de herramientas ruidosa
+            st.plotly_chart(fig1, use_container_width=True, config={'displayModeBar': False})
         else:
-            st.info("Sin datos de tiempos.")
+            st.info("Sin datos de tiempos en la vista actual.")
         st.markdown('</div>', unsafe_allow_html=True)
+
     with col_g2:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Indicadores Financieros ($)</h3>', unsafe_allow_html=True)
-        if not df_finanzas.empty:
-            # Acortar nombres para que entren bien
-            nombres_finanzas = [str(x)[:15] + '...' if len(str(x)) > 15 else str(x) for x in df_finanzas['INDICADOR']]
-            esp_fin = df_finanzas['MEDICION ESPERADA']
-            real_fin = df_finanzas['MEDICION REAL']
-            
-            colores_fin_real = ['#10b981' if r <= e else '#ef4444' for r, e in zip(real_fin, esp_fin)]
-
-            fig2 = go.Figure()
-            # Usar barras ligeramente más delgadas
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=esp_fin, name='Cotizado/Esp.', marker_color='rgba(59, 130, 246, 0.7)', width=0.35))
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=real_fin, name='Real', marker_color=colores_fin_real, width=0.35))
-            
-            fig2.update_layout(
-                barmode='group', height=320, 
-                margin=dict(l=10, r=10, t=30, b=30),
-                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#94a3b8', family='Inter'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="center", x=0.5, font=dict(size=10)),
-                bargap=0.15 # Espacio entre grupos
-            )
-            
-            # Configurar el eje Y para que se adapte mejor si los valores son muy diferentes (escala logarítmica opcional, pero aquí usaremos lineal ajustada)
-            fig2.update_yaxes(tickprefix="$", tickformat=",.0f", showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)')
-            fig2.update_xaxes(tickangle=-45) # Rotar etiquetas para que no se corten
-            
-            st.plotly_chart(fig2, use_container_width=True, config={'displayModeBar': False})
-        else:
-            st.info("Sin datos financieros.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- 3. DIAGNÓSTICO ---
-    col_g3, col_g4 = st.columns(2)
-    
-    with col_g3:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">🎯 Cumplimiento Global</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">🎯 Distribución de Cumplimiento</h3>', unsafe_allow_html=True)
         fig3 = go.Figure(data=[go.Pie(
             labels=['Cumplen', 'Fuera de Meta'], 
             values=[cumplen, no_cumplen],
@@ -352,47 +343,25 @@ def main():
             textinfo='percent+value'
         )])
         fig3.update_layout(
-            height=250, margin=dict(l=10, r=10, t=10, b=10),
+            height=280, margin=dict(l=10, r=10, t=20, b=20),
             plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
             font=dict(color='#f8fafc', family='Inter'),
             legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5)
         )
-        st.plotly_chart(fig3, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-    with col_g4:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">🚨 Top Cuellos de Botella</h3>', unsafe_allow_html=True)
-        df_retrasos = df_tiempos[df_tiempos['MEDICION REAL'] > df_tiempos['MEDICION ESPERADA']].copy()
-        if not df_retrasos.empty:
-            df_retrasos['DESVIACION'] = df_retrasos['MEDICION REAL'] - df_retrasos['MEDICION ESPERADA']
-            df_retrasos = df_retrasos.sort_values('DESVIACION', ascending=True).tail(5) 
-            
-            nombres_retrasos = [str(x)[:22] + '...' if len(str(x)) > 22 else str(x) for x in df_retrasos['INDICADOR']]
-            
-            fig4 = go.Figure(go.Bar(
-                x=df_retrasos['DESVIACION'], y=nombres_retrasos, orientation='h',
-                marker_color='#f97316', text=df_retrasos['DESVIACION'], textposition='auto'
-            ))
-            fig4.update_layout(
-                height=250, margin=dict(l=10, r=20, t=10, b=30),
-                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color='#94a3b8', family='Inter'),
-                xaxis=dict(title='Días de retraso')
-            )
-            st.plotly_chart(fig4, use_container_width=True)
-        else:
-            st.markdown("<p style='color:#10b981; text-align:center; padding: 3rem 0; font-size: 1.1rem;'>No hay retrasos operativos. 🎉</p>", unsafe_allow_html=True)
+        st.plotly_chart(fig3, use_container_width=True, config={'displayModeBar': False})
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- 4. TABLA E INSIGHTS ---
-    col_b1, col_b2 = st.columns([2.2, 1])
+
+    # --- 3. MATRIZ DE RENDIMIENTO E INSIGHTS COMPLETOS ---
+    # Layout redistribuido: 70% Tabla, 30% Insights
+    col_b1, col_b2 = st.columns([2.5, 1])
     
     with col_b1:
-        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📊 Matriz de Rendimiento</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📊 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
         tabla_html = "<div style='overflow-x:auto;'><table class='custom-table'><thead><tr><th>Indicador</th><th>Meta</th><th>Esperado</th><th>Real</th><th>Estado</th></tr></thead><tbody>"
         for _, row in df_filtered.iterrows():
-            indicador = str(row['INDICADOR'])[:45] + "..." if len(str(row['INDICADOR'])) > 45 else row['INDICADOR']
+            indicador = str(row['INDICADOR'])[:50] + "..." if len(str(row['INDICADOR'])) > 50 else row['INDICADOR']
             meta = row['META'] if 'META' in df_filtered.columns else '-'
             esp = row['MEDICION ESPERADA']
             real = row['MEDICION REAL']
@@ -408,46 +377,64 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col_b2:
-        st.markdown('<div class="glass-card" style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(59, 130, 246, 0.3);"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">💡 Insights</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card" style="background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(59, 130, 246, 0.3);"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">💡 Insights y Diagnóstico</h3>', unsafe_allow_html=True)
         
-        if no_cumplen > 0:
-            peor_desfase_tiempo = df_tiempos[df_tiempos['CUMPLIMIENTO'] == 'no cumple'].sort_values(by='MEDICION REAL', ascending=False).head(1)
+        # Evaluar todo (Lo malo y lo bueno)
+        
+        # 1. Analizar Cuellos de Botella (Lo Malo)
+        peor_desfase_tiempo = df_tiempos[df_tiempos['CUMPLIMIENTO'] == 'no cumple'].copy()
+        if not peor_desfase_tiempo.empty:
+            peor_desfase_tiempo['DESV'] = peor_desfase_tiempo['MEDICION REAL'] - peor_desfase_tiempo['MEDICION ESPERADA']
+            peor_desfase_tiempo = peor_desfase_tiempo.sort_values(by='DESV', ascending=False).head(1)
+            nombre_peor = peor_desfase_tiempo.iloc[0]['INDICADOR']
+            real_peor = peor_desfase_tiempo.iloc[0]['MEDICION REAL']
+            esp_peor = peor_desfase_tiempo.iloc[0]['MEDICION ESPERADA']
+            pct_retraso = ((real_peor - esp_peor) / esp_peor) * 100 if esp_peor > 0 else 0
             
-            if not peor_desfase_tiempo.empty:
-                nombre_peor = peor_desfase_tiempo.iloc[0]['INDICADOR']
-                real_peor = peor_desfase_tiempo.iloc[0]['MEDICION REAL']
-                esp_peor = peor_desfase_tiempo.iloc[0]['MEDICION ESPERADA']
-                pct_retraso = ((real_peor - esp_peor) / esp_peor) * 100 if esp_peor > 0 else 0
-                
-                st.markdown(f"""
-                <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #ef4444; margin-bottom: 0.8rem;">
-                    <h4 style="color: white; margin: 0 0 0.25rem 0; font-size: 0.9rem;">🔴 Mayor Retraso</h4>
-                    <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0;"><strong>"{nombre_peor}"</strong> tarda {pct_retraso:.0f}% más de lo esperado.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            if fuga_costos > 0:
-                st.markdown(f"""
-                <div style="background: rgba(249, 115, 22, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #f97316; margin-bottom: 0.8rem;">
-                    <h4 style="color: white; margin: 0 0 0.25rem 0; font-size: 0.9rem;">🟠 Alerta Financiera</h4>
-                    <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0;">Sobrecosto total de <strong>${fuga_costos:,.0f}</strong> vs lo esperado.</p>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-             st.markdown("""
-                <div style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #10b981; margin-bottom: 0.8rem;">
-                    <h4 style="color: white; margin: 0 0 0.25rem 0; font-size: 0.9rem;">🟢 Todo Óptimo</h4>
-                    <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0;">Todos los indicadores cumplen sus metas.</p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        if fuga_costos < 0:
             st.markdown(f"""
-            <div style="background: rgba(59, 130, 246, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #3b82f6;">
-                <h4 style="color: white; margin: 0 0 0.25rem 0; font-size: 0.9rem;">🔵 Ahorro</h4>
-                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0;">Gestión eficiente: ahorro de <strong>${abs(fuga_costos):,.0f}</strong>.</p>
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #ef4444; margin-bottom: 0.8rem;">
+                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🔴 Mayor Retraso</h4>
+                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">El proceso <strong>"{nombre_peor}"</strong> está tardando un {pct_retraso:.0f}% más de lo estipulado ({real_peor} vs {esp_peor} días).</p>
             </div>
             """, unsafe_allow_html=True)
+            
+        # 2. Analizar Sobrecostos (Lo Malo)
+        if fuga_costos > 0:
+            st.markdown(f"""
+            <div style="background: rgba(249, 115, 22, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #f97316; margin-bottom: 0.8rem;">
+                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🟠 Alerta Financiera</h4>
+                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Las desviaciones están generando un sobrecosto acumulado de <strong>${fuga_costos:,.0f}</strong> frente a lo cotizado en los rubros analizados.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 3. Analizar Aciertos de Tiempos (Lo Bueno)
+        mejores_tiempos = df_tiempos[df_tiempos['CUMPLIMIENTO'] == 'cumple'].copy()
+        if not mejores_tiempos.empty:
+            num_aciertos = len(mejores_tiempos)
+            st.markdown(f"""
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #10b981; margin-bottom: 0.8rem;">
+                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🟢 Eficiencia Operativa</h4>
+                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Hay <strong>{num_aciertos} métricas de tiempo</strong> que se están cumpliendo a la perfección dentro del SLA esperado.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 4. Analizar Ahorros (Lo Bueno)
+        if fuga_costos < 0:
+            st.markdown(f"""
+            <div style="background: rgba(59, 130, 246, 0.1); padding: 1rem; border-radius: 0.5rem; border-left: 3px solid #3b82f6; margin-bottom: 0.8rem;">
+                <h4 style="color: white; margin: 0 0 0.3rem 0; font-size: 0.9rem;">🔵 Ahorro Financiero</h4>
+                <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0; line-height: 1.4;">Excelente gestión: se ha logrado una reducción de costos facturados por <strong>${abs(fuga_costos):,.0f}</strong> respecto al presupuesto base.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        # Mensaje de paz si no hay nada malo (Cero sobrecostos y cero retrasos)
+        if no_cumplen == 0:
+             st.markdown("""
+                <div style="background: rgba(16, 185, 129, 0.15); padding: 1rem; border-radius: 0.5rem; border: 1px dashed #10b981; margin-top: 1rem; text-align: center;">
+                    <p style="color: #10b981; font-size: 0.9rem; font-weight: 600; margin: 0;">🏆 Operación Excelente</p>
+                    <p style="color: #cbd5e1; font-size: 0.8rem; margin: 0.25rem 0 0 0;">No se detectan desviaciones ni cuellos de botella en la información cargada.</p>
+                </div>
+                """, unsafe_allow_html=True)
             
         st.markdown('</div>', unsafe_allow_html=True)
 
