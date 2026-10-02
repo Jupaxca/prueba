@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -12,9 +13,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS personalizados (UI/UX corporativo oscuro)
+# Estilos CSS personalizados (UI/UX corporativo oscuro y tipografía compacta)
 st.markdown("""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        .main, *, p, span, div, th, td {
+            font-family: 'Inter', sans-serif !important;
+        }
         .main {
             background-color: #0f172a;
             color: #f8fafc;
@@ -23,7 +29,7 @@ st.markdown("""
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 1rem;
+            border-radius: 1.25rem;
             padding: 1.25rem;
             margin-bottom: 1rem;
         }
@@ -31,7 +37,7 @@ st.markdown("""
             background: rgba(30, 41, 59, 0.7);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 1rem;
+            border-radius: 1.25rem;
             padding: 1rem;
             position: relative;
             overflow: hidden;
@@ -39,14 +45,14 @@ st.markdown("""
         .insight-card-red {
             background-color: #2a161f;
             border-left: 4px solid #ef4444;
-            border-radius: 0.4rem;
+            border-radius: 0.5rem;
             padding: 0.4rem 0.6rem;
             margin-bottom: 0.4rem;
         }
         .insight-card-green {
             background-color: #132724;
             border-left: 4px solid #10b981;
-            border-radius: 0.4rem;
+            border-radius: 0.5rem;
             padding: 0.4rem 0.6rem;
             margin-bottom: 0.4rem;
         }
@@ -72,7 +78,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# URL por defecto de Google Sheets proveída
 DEFAULT_GSHEET_URL = "https://docs.google.com/spreadsheets/d/1l5rXqFgHcUyNSQB_s82UTrHxVlpV6GHb4Yobegd-t2g/edit?usp=drivesdk"
 
 def convertir_url_gsheets(url):
@@ -93,7 +98,6 @@ def cargar_datos_gsheets(url):
         df.columns = [str(c).strip() for c in df.columns]
         return df
     except Exception as e:
-        # Fallback estructurado si ocurre algún error de red
         data = [
             {"INDICADOR": "Cumplimiento de Itinerario (Transito origen - destino )", "DEFINICION OPERACIÓN": "Embarques...", "MEDIDA": "dias - %", "META": "≥ 90%", "MEDICION ESPERADA": 2, "MEDICION REAL": 2, "%": 100, "CUMPLIMIENTO": "cumple"},
             {"INDICADOR": "Tiempo de Respuesta en Cotización", "DEFINICION OPERACIÓN": "Tiempo...", "MEDIDA": "dias - %", "META": "≤ 2 dia", "MEDICION ESPERADA": 5, "MEDICION REAL": 5, "%": 100, "CUMPLIMIENTO": "cumple"},
@@ -102,14 +106,14 @@ def cargar_datos_gsheets(url):
             {"INDICADOR": "Tiempo de Disposición en Depósito", "DEFINICION OPERACIÓN": "Días...", "MEDIDA": "dias - %", "META": "≤ 4 días", "MEDICION ESPERADA": 5, "MEDICION REAL": 7, "%": 71.4, "CUMPLIMIENTO": "no cumple"},
             {"INDICADOR": "Eficiencia reconocimiento", "DEFINICION OPERACIÓN": "Cantidad...", "MEDIDA": "%", "META": "(=) 0", "MEDICION ESPERADA": 6, "MEDICION REAL": 4, "%": 100, "CUMPLIMIENTO": "cumple"},
             {"INDICADOR": "Reporte novedades e inconsistencias reconocimiento", "DEFINICION OPERACIÓN": "Tiempo...", "MEDIDA": "dias", "META": "≤ 2 dia", "MEDICION ESPERADA": 6, "MEDICION REAL": 8, "%": 75, "CUMPLIMIENTO": "no cumple"},
-            {"INDICADOR": "Facturacion reconocimiento Vs cotizacion proveedor", "DEFINICION OPERACIÓN": "Costo...", "MEDIDA": "%", "META": "(=) 0", "MEDICION ESPERADA": 700, "MEDICION REAL": 800, "%": 87.5, "CUMPLIMIENTO": "no cumple"}
+            {"INDICADOR": "Facturacion reconcimiento Vs cotizacion proveedor", "DEFINICION OPERACIÓN": "Costo...", "MEDIDA": "%", "META": "(=) 0", "MEDICION ESPERADA": 700, "MEDICION REAL": 800, "%": 87.5, "CUMPLIMIENTO": "no cumple"}
         ]
         return pd.DataFrame(data)
 
 def main():
-    st.sidebar.markdown("## 🔍 Filtros y Configuración")
+    st.sidebar.markdown("## 🔍 Filtros")
     
-    with st.sidebar.expander("⚙️ Origen de Datos", expanded=False):
+    with st.sidebar.expander("⚙️ Configuración de Datos", expanded=False):
         gsheet_url = st.text_input("URL de Google Sheets", value=DEFAULT_GSHEET_URL)
     
     if st.sidebar.button("🔄 Refrescar Datos", use_container_width=True):
@@ -139,7 +143,7 @@ def main():
     no_cumplen = len(df[df['CUMPLIMIENTO'].astype(str).str.lower() == 'no cumple'])
     salud_pct = (cumplen / total_kpis * 100) if total_kpis > 0 else 0
 
-    # Lógica de estados según los rangos solicitados
+    # Lógica de estados según tus rangos solicitados
     if salud_pct <= 25:
         estado_badge = "🔴 ESTADO CRÍTICO: Acción Inmediata Requerida"
         badge_bg = "rgba(239, 68, 68, 0.2)"
@@ -312,43 +316,25 @@ def main():
     with col_t1:
         st.markdown('<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">📋 Matriz de Rendimiento de Procesos</h3>', unsafe_allow_html=True)
         
-        tabla_html = """
-        <div style="overflow-x: auto; max-height: 400px;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.8rem;">
-            <thead>
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: #94a3b8; position: sticky; top: 0; background: #1e293b; z-index: 1;">
-                    <th style="padding: 0.6rem;">Indicador</th>
-                    <th style="padding: 0.6rem;">Meta</th>
-                    <th style="padding: 0.6rem; text-align: center;">Esperado</th>
-                    <th style="padding: 0.6rem; text-align: center;">Real</th>
-                    <th style="padding: 0.6rem; text-align: center;">Estado</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
+        # Uso seguro de dataframe de Streamlit para evitar escape de HTML en crudo
+        df_display = df_filtrado[['INDICADOR', 'META', 'MEDICION ESPERADA', 'MEDICION REAL', 'CUMPLIMIENTO']].copy()
+        df_display.columns = ['Indicador', 'Meta', 'Esperado', 'Real', 'Estado']
         
-        for _, row in df.iterrows():
-            estilo_badge = "background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600;" if str(row['CUMPLIMIENTO']).lower() == 'cumple' else "background: rgba(239, 68, 68, 0.2); color: #f87171; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600;"
-            texto_estado = "CUMPLE" if str(row['CUMPLIMIENTO']).lower() == 'cumple' else "NO CUMPLE"
+        def color_estado(val):
+            color = '#34d399' if str(val).lower() == 'cumple' else '#f87171'
+            return f'color: {color}; font-weight: bold;'
             
-            tabla_html += f"""
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); color: #f8fafc;">
-                    <td style="padding: 0.6rem; font-weight: 500;">{row['INDICADOR']}</td>
-                    <td style="padding: 0.6rem; color: #94a3b8;">{row['META']}</td>
-                    <td style="padding: 0.6rem; text-align: center;">{row['MEDICION ESPERADA']}</td>
-                    <td style="padding: 0.6rem; text-align: center; font-weight: 600;">{row['MEDICION REAL']}</td>
-                    <td style="padding: 0.6rem; text-align: center;"><span style="{estilo_badge}">{texto_estado}</span></td>
-                </tr>
-            """
-            
-        tabla_html += "</tbody></table></div>"
-        st.markdown(tabla_html, unsafe_allow_html=True)
+        st.dataframe(
+            df_display.style.applymap(color_estado, subset=['Estado']),
+            use_container_width=True,
+            hide_index=True
+        )
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_t2:
-        st.markdown(f'<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">💡 Diagnóstico Detallado ({len(df)} Apartados)</h3>', unsafe_allow_html=True)
+        st.markdown(f'<div class="glass-card"><h3 class="text-white" style="font-size:1.1rem; margin-bottom:1rem; font-weight:600;">💡 Diagnóstico Detallado ({len(df_filtrado)} Apartados)</h3>', unsafe_allow_html=True)
         
-        for _, row in df.iterrows():
+        for _, row in df_filtrado.iterrows():
             ind = str(row['INDICADOR'])
             esp = row['MEDICION ESPERADA']
             real = row['MEDICION REAL']
@@ -361,7 +347,7 @@ def main():
                 card_class = "insight-card-green"
                 icon = "🟢"
                 if es_financiero:
-                    msg = f"Se cumple al 100% en control financiero (Esperado: ${esp:,.0f}, Real: ${real:,.0f}). Sin desvíos de presupuesto."
+                    msg = f"Se cumple al 100% en control financiero (Esperado: ${esp:,.0f}, Real: ${real:,.0f}). Sin desvíos."
                 else:
                     msg = f"Se cumple al 100% en el indicador (Esperado: {esp}, Real: {real}). Operación eficiente."
             else:
@@ -369,10 +355,10 @@ def main():
                 icon = "🔴"
                 if es_financiero:
                     pct_sobrecosto = ((real - esp) / esp * 100) if esp > 0 else 100
-                    msg = f"Presenta sobrecosto monetario un {pct_sobrecosto:.0f}% de lo esperado (Esperado: ${esp:,.0f}, Real:${real:,.0f})."
+                    msg = f"Presenta sobrecosto monetario un {pct_sobrecosto:.0f}% de lo esperado (Esp: ${esp:,.0f}, Real:${real:,.0f})."
                 else:
                     pct_demora = ((real - esp) / esp * 100) if esp > 0 else 100
-                    msg = f"Presenta retraso o demora un {pct_demora:.0f}% de lo esperado (Esperado: {esp}, Real: {real})."
+                    msg = f"Presenta retraso o demora un {pct_demora:.0f}% de lo esperado (Esp: {esp}, Real: {real})."
 
             st.markdown(f"""
             <div class="{card_class}">
@@ -387,3 +373,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+```
