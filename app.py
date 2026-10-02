@@ -33,7 +33,13 @@ st.markdown("""
             max-width: 96% !important;
         }
         
-        /* Ocultar solo footer, NO el header para mantener el botón lateral */
+        /* Ocultar header default y footer, pero mantener el botón de colapsar sidebar */
+        header[data-testid="stHeader"] {
+            background-color: transparent !important;
+        }
+        header[data-testid="stHeader"] .st-emotion-cache-18ni7ap {
+            display: none; /* Oculta logo/elementos extra del header derecho si los hay */
+        }
         footer {visibility: hidden;}
         
         .glass-card {
@@ -129,16 +135,21 @@ def load_data(url):
 def main():
     # --- BARRA LATERAL ---
     with st.sidebar:
-        st.markdown('<h2 style="color:white; font-weight: 600;">🔎 Filtros</h2>', unsafe_allow_html=True)
+        st.markdown('<h2 style="color:white; font-weight: 600;">🔎 Filtros y Configuración</h2>', unsafe_allow_html=True)
         
         default_url = "https://docs.google.com/spreadsheets/d/1l5rXqFgHcUyNSQB_s82UTrHxVlpV6GHb4Yobegd-t2g/edit?usp=drivesdk"
-        df, error = load_data(default_url)
+        
+        # Opciones avanzadas colapsables para no saturar
+        with st.expander("⚙️ Origen de Datos", expanded=False):
+            url_input = st.text_input("URL de Google Sheets", default_url, key="sheet_url")
+            
+        df, error = load_data(url_input)
         
         df_filtered = None
         if df is not None and not df.empty:
             estados = ['Todos'] + list(df['CUMPLIMIENTO'].dropna().unique())
             filtro_estado = st.selectbox("Estado del KPI", estados, index=0)
-            filtro_texto = st.text_input("Buscar (ej. Flete)...", "")
+            filtro_texto = st.text_input("Buscar Indicador...", "")
             
             df_filtered = df.copy()
             if filtro_estado != 'Todos':
@@ -147,7 +158,7 @@ def main():
                 df_filtered = df_filtered[df_filtered['INDICADOR'].str.contains(filtro_texto, case=False, na=False)]
         
         st.markdown("---")
-        st.markdown('<p style="color:#94a3b8; font-size:0.85rem;">Conexión a Datos En Vivo</p>', unsafe_allow_html=True)
+        st.markdown('<p style="color:#94a3b8; font-size:0.85rem;">Acciones Rápidas</p>', unsafe_allow_html=True)
         if st.button("🔄 Refrescar Datos", use_container_width=True):
             st.cache_data.clear()
             st.rerun()
@@ -170,15 +181,14 @@ def main():
 
     fuga_costos = 0
     df_finanzas = df_filtered[df_filtered['INDICADOR'].str.contains('Facturacion|flete', case=False, na=False)]
+    flete_esperado = 0
+    flete_real = 0
     
     if not df_finanzas.empty:
-        rec_esperado = df_finanzas[df_finanzas['INDICADOR'].str.contains('reconcimiento|reconocimiento', case=False, na=False)]['MEDICION ESPERADA'].sum()
-        rec_real = df_finanzas[df_finanzas['INDICADOR'].str.contains('reconcimiento|reconocimiento', case=False, na=False)]['MEDICION REAL'].sum()
-        fuga_costos += (rec_real - rec_esperado)
-        
-        flete_esperado = df_finanzas[df_finanzas['INDICADOR'].str.contains('flete', case=False, na=False)]['MEDICION ESPERADA'].sum()
-        flete_real = df_finanzas[df_finanzas['INDICADOR'].str.contains('flete', case=False, na=False)]['MEDICION REAL'].sum()
-        fuga_costos -= (flete_esperado - flete_real)
+        # Sumar todos los valores de las filas financieras para el scorecard
+        total_esperado = df_finanzas['MEDICION ESPERADA'].sum()
+        total_real = df_finanzas['MEDICION REAL'].sum()
+        fuga_costos = total_real - total_esperado
 
     # --- HEADER / TÍTULO DINÁMICO ---
     col_t1, col_t2 = st.columns([3, 1])
@@ -252,9 +262,9 @@ def main():
         texto_fuga = "Sobrecosto" if fuga_costos > 0 else "Ahorro/En Presupuesto"
         st.markdown(f"""
             <div class="glass-card">
-                <div class="metric-title">Impacto Financiero <span style="float:right; opacity:0.3; font-size:1.5rem;">💰</span></div>
+                <div class="metric-title">Desviación Financiera <span style="float:right; opacity:0.3; font-size:1.5rem;">💰</span></div>
                 <div class="metric-value {color_fuga}">{signo}${abs(fuga_costos):,.0f}</div>
-                <div style="font-size:0.85rem; color:#94a3b8; margin-top:0.75rem;">{texto_fuga} vs Cotización</div>
+                <div style="font-size:0.85rem; color:#94a3b8; margin-top:0.75rem;">{texto_fuga} Neto (Real vs Esperado)</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -262,7 +272,7 @@ def main():
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
-        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">⏱️ Eje Tiempos (SLA)</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">⏱️ Cumplimiento de Tiempos (Días)</h3>', unsafe_allow_html=True)
         if not df_tiempos.empty:
             nombres_cortos = [str(x)[:18] + '...' if len(str(x)) > 18 else str(x) for x in df_tiempos['INDICADOR']]
             nombres_completos = df_tiempos['INDICADOR'].tolist()
@@ -272,8 +282,8 @@ def main():
             colores_real = ['#10b981' if r <= e else '#ef4444' for r, e in zip(real, esperado)]
             
             fig1 = go.Figure()
-            fig1.add_trace(go.Bar(x=nombres_cortos, y=esperado, name='Meta (Días)', marker_color='#3b82f6', opacity=0.8, hovertext=nombres_completos, hoverinfo="text+y"))
-            fig1.add_trace(go.Bar(x=nombres_cortos, y=real, name='Real (Días)', marker_color=colores_real, hovertext=nombres_completos, hoverinfo="text+y"))
+            fig1.add_trace(go.Bar(x=nombres_cortos, y=esperado, name='Esperado', marker_color='#3b82f6', opacity=0.8, hovertext=nombres_completos, hoverinfo="text+y"))
+            fig1.add_trace(go.Bar(x=nombres_cortos, y=real, name='Real', marker_color=colores_real, hovertext=nombres_completos, hoverinfo="text+y"))
             
             fig1.update_layout(
                 barmode='group', height=320, 
@@ -289,32 +299,32 @@ def main():
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_g2:
-        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Eje Financiero (Cotizado vs Facturado)</h3>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h3 style="color:white; font-size:1.1rem; margin-bottom:0.5rem; font-weight:600;">💰 Indicadores Financieros (Esperado vs Real)</h3>', unsafe_allow_html=True)
         if not df_finanzas.empty:
-            # Gráfico de Barras Agrupadas para Finanzas
-            nombres_finanzas = ['Flete Internacional' if 'flete' in str(x).lower() else ('Reconocimiento' if 'reconocimiento' in str(x).lower() else str(x)[:15]) for x in df_finanzas['INDICADOR']]
+            # Nuevo gráfico para finanzas basado en filas enteras
+            nombres_finanzas = [str(x)[:20] + '...' if len(str(x)) > 20 else str(x) for x in df_finanzas['INDICADOR']]
             esp_fin = df_finanzas['MEDICION ESPERADA']
             real_fin = df_finanzas['MEDICION REAL']
             
-            # Colores: Verde si el gasto real es menor o igual al cotizado, Rojo si hay sobrecosto
             colores_fin_real = ['#10b981' if r <= e else '#ef4444' for r, e in zip(real_fin, esp_fin)]
 
             fig2 = go.Figure()
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=esp_fin, name='Cotizado ($)', marker_color='#3b82f6', opacity=0.8))
-            fig2.add_trace(go.Bar(x=nombres_finanzas, y=real_fin, name='Facturado ($)', marker_color=colores_fin_real))
+            fig2.add_trace(go.Bar(x=nombres_finanzas, y=esp_fin, name='Esperado ($)', marker_color='#3b82f6', opacity=0.8, hovertext=df_finanzas['INDICADOR'], hoverinfo="text+y"))
+            fig2.add_trace(go.Bar(x=nombres_finanzas, y=real_fin, name='Real ($)', marker_color=colores_fin_real, hovertext=df_finanzas['INDICADOR'], hoverinfo="text+y"))
             
             fig2.update_layout(
                 barmode='group', height=320, 
-                margin=dict(l=20, r=20, t=20, b=50),
+                margin=dict(l=20, r=20, t=20, b=90),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
                 font=dict(color='#94a3b8', family='Inter'),
+                xaxis=dict(tickangle=-40, tickfont=dict(size=11)),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             fig2.update_yaxes(tickprefix="$", tickformat=",.0f")
             
             st.plotly_chart(fig2, use_container_width=True)
         else:
-            st.info("Sin datos financieros.")
+            st.info("Sin datos financieros (buscando palabras 'Facturacion' o 'flete' en Indicador).")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- 3. DIAGNÓSTICO PROFUNDO ---
@@ -377,3 +387,63 @@ def main():
         tabla_html = "<div style='overflow-x:auto;'><table class='custom-table'><thead><tr><th>Indicador</th><th>Meta</th><th>Esperado</th><th>Real</th><th>Estado</th></tr></thead><tbody>"
         for _, row in df_filtered.iterrows():
             indicador = str(row['INDICADOR'])[:45] + "..." if len(str(row['INDICADOR'])) > 45 else row['INDICADOR']
+            meta = row['META'] if 'META' in df_filtered.columns else '-'
+            esp = row['MEDICION ESPERADA']
+            real = row['MEDICION REAL']
+            estado = row['CUMPLIMIENTO']
+            
+            badge = f"<span class='badge-green'>CUMPLE</span>" if estado == 'cumple' else f"<span class='badge-red'>NO CUMPLE</span>"
+            color_row = "color: #ef4444; font-weight:600;" if estado == 'no cumple' else "color: #10b981; font-weight:600;"
+            
+            tabla_html += f"<tr><td>{indicador}</td><td>{meta}</td><td>{esp}</td><td style='{color_row}'>{real}</td><td>{badge}</td></tr>"
+        
+        tabla_html += "</tbody></table></div>"
+        st.markdown(tabla_html, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+    with col_b2:
+        st.markdown('<div class="glass-card" style="background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9)); border: 1px solid rgba(59, 130, 246, 0.3);"><h3 style="color:white; font-size:1.1rem; margin-bottom:1.5rem; font-weight:600;">💡 Insights y Plan de Acción</h3>', unsafe_allow_html=True)
+        
+        if no_cumplen > 0:
+            peor_desfase_tiempo = df_tiempos[df_tiempos['CUMPLIMIENTO'] == 'no cumple'].sort_values(by='MEDICION REAL', ascending=False).head(1)
+            
+            if not peor_desfase_tiempo.empty:
+                nombre_peor = peor_desfase_tiempo.iloc[0]['INDICADOR']
+                real_peor = peor_desfase_tiempo.iloc[0]['MEDICION REAL']
+                esp_peor = peor_desfase_tiempo.iloc[0]['MEDICION ESPERADA']
+                pct_retraso = ((real_peor - esp_peor) / esp_peor) * 100 if esp_peor > 0 else 0
+                
+                st.markdown(f"""
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: 0.75rem; border-left: 4px solid #ef4444; margin-bottom: 1rem;">
+                    <h4 style="color: white; margin: 0 0 0.5rem 0; font-size: 0.95rem;">🔴 Cuello de Botella</h4>
+                    <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.4;">El indicador <strong>"{nombre_peor}"</strong> está tardando un {pct_retraso:.0f}% más de lo esperado ({real_peor} vs {esp_peor} días).</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            if fuga_costos > 0:
+                st.markdown(f"""
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: 0.75rem; border-left: 4px solid #f97316; margin-bottom: 1rem;">
+                    <h4 style="color: white; margin: 0 0 0.5rem 0; font-size: 0.95rem;">🟠 Alerta Financiera</h4>
+                    <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.4;">Las desviaciones están generando un sobrecosto total de <strong>${fuga_costos:,.0f}</strong> en los indicadores financieros evaluados frente a lo esperado.</p>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+             st.markdown("""
+                <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: 0.75rem; border-left: 4px solid #10b981; margin-bottom: 1rem;">
+                    <h4 style="color: white; margin: 0 0 0.5rem 0; font-size: 0.95rem;">🟢 Operación Saludable</h4>
+                    <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.4;">Todos los indicadores seleccionados están cumpliendo sus metas. Excelente control operativo.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        if fuga_costos < 0:
+            st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.6); padding: 1.25rem; border-radius: 0.75rem; border-left: 4px solid #3b82f6; margin-bottom: 1rem;">
+                <h4 style="color: white; margin: 0 0 0.5rem 0; font-size: 0.95rem;">🔵 Punto Fuerte</h4>
+                <p style="color: #cbd5e1; font-size: 0.85rem; margin: 0; line-height: 1.4;">Gestión eficiente en costos, generando un ahorro global de <strong>${abs(fuga_costos):,.0f}</strong> vs lo esperado.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.markdown('</div>', unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
