@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilos CSS limpios y seguros exclusivamente para el contenido principal
+# Estilos CSS limpios, seguros y optimizados para impresión en modo oscuro forzado
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -25,7 +25,7 @@ st.markdown("""
             color: #f8fafc;
         }
         .glass-card {
-            background: rgba(30, 41, 59, 0.7);
+            background: rgba(30, 41, 59, 0.75);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 1.25rem;
@@ -33,7 +33,7 @@ st.markdown("""
             margin-bottom: 1rem;
         }
         .kpi-card {
-            background: rgba(30, 41, 59, 0.7);
+            background: rgba(30, 41, 59, 0.75);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 1.25rem;
@@ -70,8 +70,25 @@ st.markdown("""
             line-height: 1.15;
             margin: 0;
         }
+        
+        /* Forzar impresión con fondo oscuro y colores nítidos */
         @media print {
-            .stButton {display: none;}
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body, .main, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+                background-color: #0f172a !important;
+                color: #f8fafc !important;
+            }
+            .glass-card, .kpi-card {
+                background: #1e293b !important;
+                border: 1px solid #475569 !important;
+                backdrop-filter: none !important;
+            }
+            .stButton, sidebar {
+                display: none !important;
+            }
         }
     </style>
 """, unsafe_allow_html=True)
